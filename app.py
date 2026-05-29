@@ -1,10 +1,10 @@
 """
 YouTube 评论搜索 — 纯云端 Web 版
-部署: pip install -r requirements.txt && python app.py
 """
 import os
 import csv
 import io
+import traceback
 from datetime import datetime
 
 import requests
@@ -17,7 +17,8 @@ BASE_URL = "https://www.googleapis.com/youtube/v3"
 
 
 def _youtube_get(path: str) -> dict:
-    resp = requests.get(f"{BASE_URL}/{path}&key={API_KEY}", timeout=15)
+    url = f"{BASE_URL}/{path}&key={API_KEY}"
+    resp = requests.get(url, timeout=15)
     resp.raise_for_status()
     return resp.json()
 
@@ -27,16 +28,24 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok", "key_configured": bool(API_KEY)})
+
+
 @app.route("/api/search")
 def api_search():
     keyword = request.args.get("q", "").strip()
     if not keyword:
         return jsonify({"error": "关键词不能为空"}), 400
 
-    # 搜索视频
-    data = _youtube_get(
-        f"search?part=snippet&q={keyword}&type=video&maxResults=20"
-    )
+    try:
+        data = _youtube_get(
+            f"search?part=snippet&q={keyword}&type=video&maxResults=20"
+        )
+    except Exception as e:
+        return jsonify({"error": f"搜索API失败: {str(e)}"}), 500
+
     videos = []
     video_ids = []
     for item in data.get("items", []):
@@ -54,10 +63,13 @@ def api_search():
     if not video_ids:
         return jsonify({"videos": []})
 
-    # 获取统计数据（播放量、评论数）
-    stats_data = _youtube_get(
-        f"videos?part=statistics&id={','.join(video_ids)}"
-    )
+    try:
+        stats_data = _youtube_get(
+            f"videos?part=statistics&id={','.join(video_ids)}"
+        )
+    except Exception as e:
+        return jsonify({"error": f"统计API失败: {str(e)}"}), 500
+
     stats_map = {}
     for item in stats_data.get("items", []):
         s = item.get("statistics", {})
@@ -84,8 +96,10 @@ def api_export():
 
     all_rows = []
     for vid in video_ids:
-        # 获取视频详情
-        vdata = _youtube_get(f"videos?part=snippet,statistics&id={vid}")
+        try:
+            vdata = _youtube_get(f"videos?part=snippet,statistics&id={vid}")
+        except Exception:
+            continue
         items = vdata.get("items", [])
         if not items:
             continue
@@ -96,7 +110,6 @@ def api_export():
         pub = info["snippet"]["publishedAt"]
         url = f"https://www.youtube.com/watch?v={vid}"
 
-        # 获取评论
         try:
             cdata = _youtube_get(
                 f"commentThreads?part=snippet&videoId={vid}&maxResults=100&order=relevance"
@@ -119,11 +132,10 @@ def api_export():
             ])
 
     if not all_rows:
-        return jsonify({"error": "所选视频暂无评论"}), 404
+        return jsonify({"error": "所选视频暂无评论或获取失败"}), 404
 
-    # 生成 CSV
     buf = io.StringIO()
-    buf.write("\ufeff")  # BOM for Excel
+    buf.write("\ufeff")
     writer = csv.writer(buf)
     writer.writerow(["评论作者", "评论内容", "点赞数", "评论时间",
                       "视频标题", "视频链接", "频道", "视频播放量", "视频发布时间"])
