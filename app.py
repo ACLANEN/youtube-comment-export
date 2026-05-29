@@ -17,7 +17,7 @@ BASE_URL = "https://www.googleapis.com/youtube/v3"
 
 # === Reddit 配置 ===
 REDDIT_HEADERS = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36", "Accept": "application/json"}
-REDDIT_BASE = "https://old.reddit.com"
+REDDIT_BASE = "https://www.reddit.com"
 
 def _reddit_get(url: str, params: dict = None) -> dict:
     resp = requests.get(url, headers=REDDIT_HEADERS, params=params, timeout=15)
