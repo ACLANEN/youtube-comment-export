@@ -441,7 +441,8 @@ function renderCards(append = false) {
           <div class="title" title="${esc(v.title)}">${esc(v.title)}</div>
           <div class="meta">
             <span>${esc(v.channel)}</span>
-            ${v.duration ? `<span class="duration">${v.duration}</span>` : ''}
+            <span>${v.published_at ? v.published_at.slice(0,10) : ''}</span>
+            ${v.duration ? '<span class="duration">' + v.duration + '</span>' : ''}
           </div>
         </div>
         <div class="stats">
