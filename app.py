@@ -28,9 +28,15 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/health")
-def health():
-    return jsonify({"status": "ok", "key_configured": bool(API_KEY)})
+@app.route("/debug")
+def debug():
+    """调试端点：测试 API Key 是否可用"""
+    try:
+        data = _youtube_get("search?part=snippet&q=test&type=video&maxResults=1")
+        return jsonify({"status": "ok", "api_key_valid": True, "result_count": len(data.get("items", []))})
+    except Exception as e:
+        return jsonify({"status": "error", "error_type": type(e).__name__, "error": str(e),
+                         "traceback": traceback.format_exc()}), 500
 
 
 @app.route("/api/search")
