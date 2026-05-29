@@ -55,7 +55,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(13,13,13,.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
 .nav .container { display: flex; align-items: center; justify-content: space-between; height: 56px; }
 .nav .logo { font-weight: 700; font-size: 15px; color: var(--text); letter-spacing: -0.3px; }
-.nav .logo span { color: var(--text-tertiary); font-weight: 400; }
+.nav .logo span { color: var(--accent); font-weight: 600; }
 .nav .nav-btn { font-size: 13px; color: var(--text-secondary); text-decoration: none; padding: 6px 16px; border-radius: var(--radius-sm); transition: all .15s; border: 1px solid var(--border); }
 .nav .nav-btn:hover { background: var(--surface-raised); color: var(--text); }
 
@@ -209,7 +209,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 <!-- ====== Nav ====== -->
 <nav class="nav">
   <div class="container">
-    <div class="logo">Comment Research <span>by Fynn</span></div>
+    <div class="logo">Comment Research <span>by <strong style="color:var(--accent);">Fynn</strong></span></div>
     <a href="#search" class="nav-btn">开始使用</a>
   </div>
 </nav>
@@ -219,6 +219,8 @@ p, li { font-size: 16px; color: var(--text-secondary); }
   <div class="container">
     <h1>快速获取 YouTube<br>视频评论数据</h1>
     <p class="subtitle">搜索视频、抓取评论、一键导出 CSV 数据，用真实用户反馈支持市场调研与运营决策。</p>
+      <p style="margin-top:8px;font-size:14px;color:var(--text-tertiary);">Built by <strong style="color:var(--accent);">Fynn</strong></p>
+      <p style="margin-top:8px;font-size:14px;color:var(--text-tertiary);">by <strong style="color:var(--accent);">Fynn</strong></p>
     <div class="cta-group">
       <a href="#search" class="btn btn-primary">开始搜索</a>
       <button class="btn btn-secondary" onclick="document.getElementById('keyword').value='cfmoto zforce z10';doSearch();document.getElementById('search').scrollIntoView({behavior:'smooth'});">查看示例</button>
@@ -235,6 +237,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
         <div class="icon">🔍</div>
         <h3>关键词搜索</h3>
         <p>输入产品名、品牌或话题关键词，快速匹配相关 YouTube 视频。</p>
+      <p style="margin-top:8px;font-size:14px;color:var(--text-tertiary);">by <strong style="color:var(--accent);">Fynn</strong></p>
       </div>
       <div class="feature-card">
         <div class="icon">💬</div>
@@ -321,7 +324,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 <!-- ====== Footer ====== -->
 <footer class="footer">
   <div class="container">
-    <p class="text-sm"><span class="brand">Comment Research</span> <span class="divider">·</span> by Fynn <span class="divider">·</span> Powered by YouTube Data API v3</p>
+    <p class="text-sm"><span class="brand">Comment Research</span> <span class="divider">·</span> by <strong style="color:var(--accent);">Fynn</strong> <span class="divider">·</span> Powered by YouTube Data API v3</p>
   </div>
 </footer>
 
