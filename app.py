@@ -118,7 +118,7 @@ def api_export():
 
         try:
             cdata = _youtube_get(
-                f"commentThreads?part=snippet&videoId={vid}&maxResults=100&order=relevance"
+                f"commentThreads?part=snippet&videoId={vid}&maxResults=150&order=relevance"
             )
         except Exception:
             continue
