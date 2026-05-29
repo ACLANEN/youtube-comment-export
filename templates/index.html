@@ -379,11 +379,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
     <span class="stat-item" id="exportStats" style="display:none"></span>
     <button class="btn btn-primary" onclick="doExport()">⬇ 导出</button>
   </div>
-  <div class="export-steps" id="exportSteps" style="display:none">
-    <span class="step" id="step1"><span class="dot"></span>获取评论</span>
-    <span class="step" id="step2"><span class="dot"></span>生成文件</span>
-    <span class="step" id="step3"><span class="dot"></span>下载</span>
-  </div>
+
 </div>
 
 <script>
@@ -512,65 +508,50 @@ async function updateUI() {
 }
 
 function showToast(msg) {
-  const existing = document.querySelector(".toast");
-  if (existing) existing.remove();
-  const t = document.createElement("div");
-  t.className = "toast"; t.textContent = msg;
+  var t = document.createElement("div");
+  t.className = "toast";
+  t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(() => { if (t.parentNode) t.remove(); }, 2500);
+  setTimeout(function() { if (t.parentNode) t.remove(); }, 2500);
 }
 
-async function doExport() {
-  const checked = document.querySelectorAll("#videoList input[type='checkbox']:checked");
-  const ids = [...checked].map(cb => videos[cb.value].video_id);
+function doExport() {
+  var checked = document.querySelectorAll("#videoList input[type='checkbox']:checked");
+  var ids = [];
+  for (var i = 0; i < checked.length; i++) {
+    ids.push(videos[checked[i].value].video_id);
+  }
   if (!ids.length) return;
 
-  const format = document.getElementById("exportFormat").value;
-  const minLikes = parseInt(document.getElementById("minLikes").value);
+  var format = document.getElementById("exportFormat").value;
+  var minLikes = parseInt(document.getElementById("minLikes").value) || 0;
+  var bar = document.getElementById("exportBar");
+  var oldHTML = bar.innerHTML;
 
-  // 切换到步骤指示器
-  document.getElementById("exportNormal").style.display = "none";
-  var steps = document.getElementById("exportSteps");
-  steps.style.display = "flex";
-  document.getElementById("step1").className = "step active";
-  document.getElementById("step2").className = "step";
-  document.getElementById("step3").className = "step";
+  bar.innerHTML = '<span style="color:var(--accent);">⏳ 导出中...</span>';
 
-  try {
-    var resp = await fetch("/api/export", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ video_ids: ids, format, min_likes: minLikes }),
-    });
-
-    document.getElementById("step1").className = "step done";
-    document.getElementById("step2").className = "step active";
-
-    if (!resp.ok) {
-      showToast("导出失败");
-      return;
-    }
-
-    var blob = await resp.blob();
-    document.getElementById("step2").className = "step done";
-    document.getElementById("step3").className = "step active";
-
+  fetch("/api/export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ video_ids: ids, format: format, min_likes: minLikes }),
+  }).then(function(resp) {
+    if (!resp.ok) throw new Error("导出失败");
+    return resp.blob();
+  }).then(function(blob) {
     var a = document.createElement("a");
     var ext = format === "xlsx" ? ".xlsx" : format === "json" ? ".json" : ".csv";
     a.href = URL.createObjectURL(blob);
     a.download = "youtube_comments_" + new Date().toISOString().slice(0,10) + ext;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
-
-    document.getElementById("step3").className = "step done";
-    await new Promise(function(r) { setTimeout(r, 500); });
     showToast("✓ 导出成功");
-  } catch (e) {
-    showToast("导出失败");
-  } finally {
-    document.getElementById("exportNormal").style.display = "flex";
-    steps.style.display = "none";
-  }
+  }).catch(function(e) {
+    showToast("导出失败: " + e.message);
+  }).finally(function() {
+    bar.innerHTML = oldHTML;
+  });
 }
 
 function setState(s) {
