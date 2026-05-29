@@ -49,7 +49,7 @@ def api_search():
         return jsonify({"error": "关键词不能为空"}), 400
 
     try:
-        data = _youtube_get(f"search?part=snippet&q={keyword}&type=video&maxResults=20")
+        data = _youtube_get(f"search?part=snippet&q={keyword}&type=video&maxResults=50")
     except Exception as e:
         return jsonify({"error": f"搜索失败: {str(e)}"}), 500
 
