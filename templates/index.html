@@ -175,6 +175,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .export-bar .label { color: var(--text-secondary); font-size: 13px; }
 .export-bar .stat-item { font-size: 12px; color: var(--text-tertiary); }
 .export-bar .stat-item strong { color: var(--text-secondary); }
+.export-bar .export-normal { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .export-bar select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: var(--radius-sm); font-size: 13px; outline: none; cursor: pointer; }
 
 /* ====== Data Preview ====== */
@@ -372,10 +373,17 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 
 <!-- ====== Export Bar ====== -->
 <div class="export-bar" id="exportBar">
-  <span class="badge" id="selectedCount">0</span>
-  <span class="label">个视频已选</span>
-  <span class="stat-item" id="exportStats" style="display:none"></span>
-  <button class="btn btn-primary" id="exportBtn" onclick="doExport()">⬇ 导出</button>
+  <div class="export-normal" id="exportNormal">
+    <span class="badge" id="selectedCount">0</span>
+    <span class="label">个视频已选</span>
+    <span class="stat-item" id="exportStats" style="display:none"></span>
+    <button class="btn btn-primary" onclick="doExport()">⬇ 导出</button>
+  </div>
+  <div class="export-steps" id="exportSteps" style="display:none">
+    <span class="step" id="step1"><span class="dot"></span>获取评论</span>
+    <span class="step" id="step2"><span class="dot"></span>生成文件</span>
+    <span class="step" id="step3"><span class="dot"></span>下载</span>
+  </div>
 </div>
 
 <script>
@@ -517,63 +525,51 @@ async function doExport() {
   const ids = [...checked].map(cb => videos[cb.value].video_id);
   if (!ids.length) return;
 
-  const bar = document.getElementById("exportBar");
-  if (!bar) return;
-
   const format = document.getElementById("exportFormat").value;
   const minLikes = parseInt(document.getElementById("minLikes").value);
 
-  // 保存原始内容，确保有 badge/label/button
-  const badgeEl = bar.querySelector(".badge");
-  const labelEl = bar.querySelector(".label");
-  const btnEl = bar.querySelector("button");
-  if (!btnEl) { updateUI(); return; }
-
-  // 替换为步骤指示器
-  bar.innerHTML = `
-    <div class="export-steps">
-      <span class="step active" id="step1"><span class="dot"></span>获取评论</span>
-      <span class="step" id="step2"><span class="dot"></span>生成文件</span>
-      <span class="step" id="step3"><span class="dot"></span>下载</span>
-    </div>
-  `;
+  // 切换到步骤指示器
+  document.getElementById("exportNormal").style.display = "none";
+  var steps = document.getElementById("exportSteps");
+  steps.style.display = "flex";
+  document.getElementById("step1").className = "step active";
+  document.getElementById("step2").className = "step";
+  document.getElementById("step3").className = "step";
 
   try {
-    const resp = await fetch("/api/export", {
+    var resp = await fetch("/api/export", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ video_ids: ids, format, min_likes: minLikes }),
     });
 
-    const s1 = document.getElementById("step1");
-    const s2 = document.getElementById("step2");
-    const s3 = document.getElementById("step3");
-    if (s1) s1.className = "step done";
-    if (s2) s2.className = "step active";
+    document.getElementById("step1").className = "step done";
+    document.getElementById("step2").className = "step active";
 
     if (!resp.ok) {
       showToast("导出失败");
       return;
     }
 
-    const blob = await resp.blob();
-    if (s2) s2.className = "step done";
-    if (s3) s3.className = "step active";
+    var blob = await resp.blob();
+    document.getElementById("step2").className = "step done";
+    document.getElementById("step3").className = "step active";
 
-    const a = document.createElement("a");
-    const ext = format === "xlsx" ? ".xlsx" : format === "json" ? ".json" : ".csv";
+    var a = document.createElement("a");
+    var ext = format === "xlsx" ? ".xlsx" : format === "json" ? ".json" : ".csv";
     a.href = URL.createObjectURL(blob);
     a.download = "youtube_comments_" + new Date().toISOString().slice(0,10) + ext;
     a.click();
     URL.revokeObjectURL(a.href);
 
-    if (s3) s3.className = "step done";
-    await new Promise(r => setTimeout(r, 400));
-    showToast("\u2713 \u5BFC\u51FA\u6210\u529F");
+    document.getElementById("step3").className = "step done";
+    await new Promise(function(r) { setTimeout(r, 500); });
+    showToast("✓ 导出成功");
   } catch (e) {
-    showToast("\u5BFC\u51FA\u5931\u8D25");
+    showToast("导出失败");
   } finally {
-    updateUI();
+    document.getElementById("exportNormal").style.display = "flex";
+    steps.style.display = "none";
   }
 }
 
