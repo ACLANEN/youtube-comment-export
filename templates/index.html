@@ -215,9 +215,33 @@ p, li { font-size: 16px; color: var(--text-secondary); }
   .workflow-arrow { transform: rotate(90deg); margin: 4px 0; }
   .export-bar { left: 12px; right: 12px; transform: none; }
 }
+
+/* ====== Password Gate ====== */
+.pw-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 999; display: flex; align-items: center; justify-content: center; }
+.pw-overlay.hidden { display: none; }
+.pw-box { text-align: center; max-width: 360px; padding: 48px 40px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.pw-box .pw-icon { font-size: 32px; margin-bottom: 16px; }
+.pw-box h3 { margin-bottom: 8px; }
+.pw-box p { font-size: 14px; color: var(--text-tertiary); margin-bottom: 24px; }
+.pw-box input { width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 15px; background: var(--bg); color: var(--text); outline: none; text-align: center; letter-spacing: 2px; transition: border-color .15s; }
+.pw-box input:focus { border-color: var(--accent); }
+.pw-box .pw-error { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 20px; }
+
 </style>
 </head>
 <body>
+
+<!-- ====== Password Gate ====== -->
+<div class="pw-overlay" id="pwOverlay">
+  <div class="pw-box">
+    <div class="pw-icon">🔒</div>
+    <h3>访问验证</h3>
+    <p>输入密码以继续使用</p>
+    <input type="password" id="pwInput" placeholder="请输入密码" autofocus>
+    <div class="pw-error" id="pwError"></div>
+  </div>
+</div>
+
 
 <!-- ====== Nav ====== -->
 <nav class="nav">
@@ -616,6 +640,47 @@ async function loadMore() {
 function fmt(n) { return n >= 10000 ? (n/10000).toFixed(1) + "万" : n.toLocaleString(); }
 function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
 document.getElementById("keyword").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
+
+/* ====== Password Gate ====== */
+(function() {
+  var overlay = document.getElementById("pwOverlay");
+  var input = document.getElementById("pwInput");
+  var error = document.getElementById("pwError");
+
+  // 检查是否已通过验证
+  if (sessionStorage.getItem("pw_verified") === "1") {
+    overlay.classList.add("hidden");
+    return;
+  }
+
+  // 先确认是否需要密码
+  fetch("/api/verify-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: "" }) })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) { overlay.classList.add("hidden"); return; }
+      // 需要密码，显示输入框
+      overlay.style.display = "flex";
+      input.focus();
+    });
+
+  input.addEventListener("keydown", function(e) {
+    if (e.key !== "Enter") return;
+    var pw = input.value;
+    fetch("/api/verify-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: pw }) })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) {
+          sessionStorage.setItem("pw_verified", "1");
+          overlay.classList.add("hidden");
+        } else {
+          error.textContent = "密码错误";
+          input.value = "";
+          input.focus();
+        }
+      });
+  });
+})();
+
 </script>
 
 </body>
