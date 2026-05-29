@@ -3,51 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube Comment Research — 评论调研工具</title>
-<meta name="description" content="快速获取 YouTube 视频评论数据。搜索视频、抓取评论、一键导出 CSV，用真实用户反馈支持市场调研与运营决策。">
+<title>Comment Research — YouTube 评论调研工具</title>
+<meta name="description" content="快速获取 YouTube 视频评论数据。搜索视频、抓取评论、一键导出 CSV/Excel，用真实用户反馈支持市场调研。">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>💬</text></svg>">
 <style>
 /* ====== Reset & Variables ====== */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
 :root {
-  --bg: #0d0d0d;
-  --surface: #141414;
-  --surface-raised: #1a1a1a;
-  --border: #262626;
-  --border-hover: #333;
-  --text: #f5f5f5;
-  --text-secondary: #a3a3a3;
-  --text-tertiary: #737373;
-  --accent: #2383e2;
-  --accent-hover: #1a6fc4;
-  --accent-subtle: rgba(35,131,226,.08);
-  --red: #e5484d;
-  --green: #30a46c;
-  --radius-sm: 6px;
-  --radius: 8px;
-  --radius-lg: 12px;
-  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 2px 8px rgba(0,0,0,.15);
+  --bg: #0d0d0d; --surface: #141414; --surface-raised: #1a1a1a;
+  --border: #262626; --border-hover: #333;
+  --text: #f5f5f5; --text-secondary: #a3a3a3; --text-tertiary: #737373;
+  --accent: #2383e2; --accent-hover: #1a6fc4; --accent-subtle: rgba(35,131,226,.08);
+  --green: #30a46c; --red: #e5484d;
+  --radius-sm: 6px; --radius: 8px; --radius-lg: 12px;
 }
-
 html { scroll-behavior: smooth; }
 body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  line-height: 1.6;
+  background: var(--bg); color: var(--text); line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
-
-/* ====== Typography ====== */
 h1 { font-size: 48px; font-weight: 700; letter-spacing: -1.5px; line-height: 1.1; }
 h2 { font-size: 32px; font-weight: 600; letter-spacing: -0.8px; }
 h3 { font-size: 18px; font-weight: 600; }
 p, li { font-size: 16px; color: var(--text-secondary); }
-.text-sm { font-size: 14px; color: var(--text-tertiary); }
-
-/* ====== Layout ====== */
 .container { max-width: 1080px; margin: 0 auto; padding: 0 32px; }
 .section { padding: 80px 0; }
 
@@ -64,7 +43,6 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .hero h1 { margin-bottom: 16px; max-width: 720px; margin-left: auto; margin-right: auto; }
 .hero .subtitle { font-size: 18px; color: var(--text-secondary); max-width: 540px; margin: 0 auto 40px; line-height: 1.6; }
 .hero .cta-group { display: flex; gap: 12px; justify-content: center; align-items: center; }
-
 .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: var(--radius); font-size: 15px; font-weight: 600; cursor: pointer; transition: all .15s; text-decoration: none; border: none; letter-spacing: -0.2px; }
 .btn-primary { background: var(--accent); color: #fff; }
 .btn-primary:hover { background: var(--accent-hover); }
@@ -72,9 +50,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .btn-secondary:hover { border-color: var(--border-hover); background: #1f1f1f; }
 
 /* ====== Features ====== */
-.features { padding: 0 0 80px; }
-.features h2 { text-align: center; margin-bottom: 48px; }
-.feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 48px; }
 .feature-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; transition: border-color .15s; }
 .feature-card:hover { border-color: var(--border-hover); }
 .feature-card .icon { font-size: 24px; margin-bottom: 16px; }
@@ -82,36 +58,45 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .feature-card p { font-size: 14px; color: var(--text-tertiary); line-height: 1.6; }
 
 /* ====== Search Section ====== */
-.search-section { padding: 0 0 80px; }
-.search-section h2 { text-align: center; margin-bottom: 16px; }
-.search-section .section-desc { text-align: center; color: var(--text-tertiary); margin-bottom: 32px; font-size: 15px; }
-.search-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; }
+.search-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; margin-top: 32px; }
 .search-row { display: flex; gap: 12px; }
 .search-row input { flex: 1; padding: 14px 18px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 16px; background: var(--bg); color: var(--text); outline: none; transition: border-color .15s; }
 .search-row input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
 .search-row input::placeholder { color: #404040; }
 .search-row button { padding: 14px 28px; }
 
+/* ====== Empty ====== */
+.empty-hints { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; justify-content: center; }
+.empty-hints span { font-size: 13px; color: var(--text-tertiary); background: var(--bg); padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); cursor: pointer; transition: all .15s; }
+.empty-hints span:hover { border-color: var(--accent); color: var(--accent); }
+
 /* ====== Results ====== */
 .results-area { display: none; margin-top: 24px; }
 .results-area.active { display: block; }
-
 .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; min-height: 32px; }
 .results-header .count { font-size: 14px; color: var(--text-tertiary); }
 .results-header .select-all { font-size: 13px; color: var(--accent); cursor: pointer; background: none; border: none; }
 .results-header .select-all:hover { text-decoration: underline; }
 
+/* ====== Filter Row ====== */
+.filter-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 10px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; }
+.filter-row label { color: var(--text-tertiary); }
+.filter-row select, .filter-row input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: var(--radius-sm); font-size: 13px; outline: none; }
+.filter-row select:focus, .filter-row input:focus { border-color: var(--accent); }
+.filter-row input[type="number"] { width: 70px; }
+
+/* ====== Video Cards ====== */
 .video-list { display: flex; flex-direction: column; gap: 8px; }
 .video-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; transition: border-color .15s; }
 .video-card:hover { border-color: var(--border-hover); }
 .video-card.selected { border-color: var(--accent); background: rgba(35,131,226,.03); }
-
 .card-main { display: flex; align-items: center; padding: 14px 20px; gap: 16px; cursor: pointer; }
 .card-main .cb-wrap input { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
 .card-main .thumb { width: 120px; height: 68px; border-radius: var(--radius-sm); object-fit: cover; background: #1a1a1a; flex-shrink: 0; }
 .card-main .info { flex: 1; min-width: 0; }
 .card-main .info .title { font-size: 15px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
-.card-main .info .meta { font-size: 13px; color: var(--text-tertiary); display: flex; gap: 16px; }
+.card-main .info .meta { font-size: 13px; color: var(--text-tertiary); display: flex; gap: 16px; align-items: center; }
+.card-main .info .meta .duration { background: #1a1a1a; padding: 1px 6px; border-radius: 3px; font-size: 11px; color: #999; }
 .card-main .stats { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 13px; }
 .card-main .stats .views { color: var(--text-secondary); font-weight: 500; }
 .card-main .stats .cmts { color: var(--text-tertiary); }
@@ -119,6 +104,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .card-main .expand-arrow { flex-shrink: 0; color: #3d3d3d; font-size: 14px; transition: transform .2s; }
 .video-card.expanded .expand-arrow { transform: rotate(180deg); color: var(--accent); }
 
+/* Comment Preview */
 .comment-preview { display: none; border-top: 1px solid var(--border); }
 .video-card.expanded .comment-preview { display: block; max-height: 440px; overflow-y: auto; }
 .comment-preview .preview-header { padding: 12px 20px 8px; font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .5px; }
@@ -141,11 +127,6 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .loading-dots span:nth-child(3) { animation-delay: .32s; }
 @keyframes dotPulse { 0%, 80%, 100% { transform: scale(.3); opacity: .2; } 40% { transform: scale(1); opacity: 1; } }
 
-/* ====== Empty State ====== */
-.empty-state { display: none; text-align: center; padding: 48px 0; }
-.empty-state.active { display: block; }
-.empty-state .msg { color: var(--text-tertiary); font-size: 15px; }
-
 /* ====== Export Bar ====== */
 .export-bar {
   position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
@@ -155,14 +136,14 @@ p, li { font-size: 16px; color: var(--text-secondary); }
   box-shadow: 0 4px 24px rgba(0,0,0,.5);
   z-index: 100;
 }
-.export-bar.visible { display: flex; }
+.export-bar.visible { display: flex; flex-wrap: wrap; }
 .export-bar .badge { background: var(--accent); color: #fff; padding: 2px 10px; border-radius: 4px; font-size: 13px; font-weight: 600; }
 .export-bar .label { color: var(--text-secondary); font-size: 13px; }
+.export-bar .stat-item { font-size: 12px; color: var(--text-tertiary); }
+.export-bar .stat-item strong { color: var(--text-secondary); }
+.export-bar select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: var(--radius-sm); font-size: 13px; outline: none; cursor: pointer; }
 
-/* ====== Data Preview Table ====== */
-.data-preview { padding: 0 0 80px; }
-.data-preview h2 { text-align: center; margin-bottom: 16px; }
-.data-preview .section-desc { text-align: center; color: var(--text-tertiary); margin-bottom: 32px; font-size: 15px; }
+/* ====== Data Preview ====== */
 .preview-table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 .preview-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .preview-table th { text-align: left; padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .5px; }
@@ -171,9 +152,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .preview-table td:first-child { color: var(--text); font-weight: 500; }
 
 /* ====== Workflow ====== */
-.workflow { padding: 0 0 80px; }
-.workflow h2 { text-align: center; margin-bottom: 48px; }
-.workflow-steps { display: flex; justify-content: center; align-items: center; gap: 0; flex-wrap: wrap; }
+.workflow-steps { display: flex; justify-content: center; align-items: center; gap: 0; flex-wrap: wrap; margin-top: 48px; }
 .workflow-step { text-align: center; padding: 0 24px; }
 .workflow-step .step-num { width: 40px; height: 40px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-weight: 700; font-size: 15px; color: var(--accent); }
 .workflow-step .step-label { font-size: 14px; color: var(--text-secondary); }
@@ -199,8 +178,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
   .search-row { flex-direction: column; }
   .workflow-steps { flex-direction: column; }
   .workflow-arrow { transform: rotate(90deg); margin: 4px 0; }
-  .preview-table { font-size: 12px; }
-  .preview-table th, .preview-table td { padding: 10px 12px; }
+  .export-bar { left: 12px; right: 12px; transform: none; }
 }
 </style>
 </head>
@@ -219,7 +197,6 @@ p, li { font-size: 16px; color: var(--text-secondary); }
   <div class="container">
     <h1>快速获取 YouTube<br>视频评论数据</h1>
     <p class="subtitle">搜索视频、抓取评论、一键导出 CSV 数据，用真实用户反馈支持市场调研与运营决策。</p>
-      <p style="margin-top:8px;font-size:14px;color:var(--text-tertiary);">by Fynn</p>
     <div class="cta-group">
       <a href="#search" class="btn btn-primary">开始搜索</a>
       <button class="btn btn-secondary" onclick="document.getElementById('keyword').value='cfmoto zforce z10';doSearch();document.getElementById('search').scrollIntoView({behavior:'smooth'});">查看示例</button>
@@ -228,54 +205,60 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 </section>
 
 <!-- ====== Features ====== -->
-<section class="features">
+<section class="features section">
   <div class="container">
-    <h2>核心能力</h2>
+    <h2 style="text-align:center">核心能力</h2>
     <div class="feature-grid">
-      <div class="feature-card">
-        <div class="icon">🔍</div>
-        <h3>关键词搜索</h3>
-        <p>输入产品名、品牌或话题关键词，快速匹配相关 YouTube 视频。</p>
-      <p style="margin-top:8px;font-size:14px;color:var(--text-tertiary);">by Fynn</p>
-      </div>
-      <div class="feature-card">
-        <div class="icon">💬</div>
-        <h3>评论抓取</h3>
-        <p>获取视频公开评论及回复，单次最高 150 条，覆盖热门讨论。</p>
-      </div>
-      <div class="feature-card">
-        <div class="icon">⬇️</div>
-        <h3>CSV 导出</h3>
-        <p>一键导出结构化数据，包含用户、内容、点赞数、时间等完整字段。</p>
-      </div>
+      <div class="feature-card"><div class="icon">🔍</div><h3>关键词搜索</h3><p>输入产品名、品牌或话题关键词，快速匹配相关 YouTube 视频。</p></div>
+      <div class="feature-card"><div class="icon">💬</div><h3>评论抓取</h3><p>获取视频公开评论及回复，单次最高 150 条，按点赞数过滤噪音。</p></div>
+      <div class="feature-card"><div class="icon">📊</div><h3>多格式导出</h3><p>支持 CSV、Excel、JSON 格式，一键导出结构化评论数据。</p></div>
     </div>
   </div>
 </section>
 
 <!-- ====== Search ====== -->
-<section class="search-section" id="search">
+<section class="section" id="search">
   <div class="container">
-    <h2>开始调研</h2>
-    <p class="section-desc">输入关键词，按播放量排序，选择视频后导出评论</p>
+    <h2 style="text-align:center">开始调研</h2>
+    <p style="text-align:center;color:var(--text-tertiary);margin-bottom:16px;font-size:15px;">输入关键词，按播放量排序，选择视频后导出评论</p>
+
     <div class="search-card">
       <div class="search-row">
         <input type="text" id="keyword" placeholder="输入关键词，如 cfmoto zforce z10 ..." autofocus>
         <button class="btn btn-primary" id="searchBtn" onclick="doSearch()">搜索</button>
       </div>
 
-      <div class="loading-block" id="loading">
-        <div class="loading-dots"><span></span><span></span><span></span></div>
+      <div class="empty-hints" id="searchHints">
+        <span onclick="quickSearch('cfmoto zforce z10')">cfmoto zforce z10</span>
+        <span onclick="quickSearch('Can-Am X3 Review')">Can-Am X3 Review</span>
+        <span onclick="quickSearch('UTV Accessories')">UTV Accessories</span>
+        <span onclick="quickSearch('Motorcycle Armor')">Motorcycle Armor</span>
       </div>
 
-      <div class="empty-state" id="emptyState">
-        <p class="msg">未找到相关视频，试试其他关键词</p>
-      </div>
+      <div class="loading-block" id="loading"><div class="loading-dots"><span></span><span></span><span></span></div></div>
 
       <div class="results-area" id="resultsArea">
         <div class="results-header">
           <span class="count" id="resultCount"></span>
           <button class="select-all" id="selectAllBtn" onclick="toggleAll()" style="display:none">全选 / 取消</button>
         </div>
+
+        <div class="filter-row">
+          <label>最低点赞数</label>
+          <select id="minLikes" onchange="updateUI()">
+            <option value="0">全部 (0)</option>
+            <option value="5">≥ 5</option>
+            <option value="10">≥ 10</option>
+            <option value="50">≥ 50</option>
+          </select>
+          <label style="margin-left:12px">导出格式</label>
+          <select id="exportFormat">
+            <option value="csv">CSV</option>
+            <option value="xlsx">Excel (.xlsx)</option>
+            <option value="json">JSON</option>
+          </select>
+        </div>
+
         <div class="video-list" id="videoList"></div>
       </div>
     </div>
@@ -283,17 +266,13 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 </section>
 
 <!-- ====== Data Preview ====== -->
-<section class="data-preview">
+<section class="section">
   <div class="container">
-    <h2>导出数据格式</h2>
-    <p class="section-desc">结构化 CSV，可直接导入 Excel、Google Sheets 或数据分析工具</p>
+    <h2 style="text-align:center">导出数据格式</h2>
+    <p style="text-align:center;color:var(--text-tertiary);margin-bottom:32px;font-size:15px;">结构化数据，可直接导入 Excel、Google Sheets 或数据分析工具</p>
     <div class="preview-table-wrap">
       <table class="preview-table">
-        <thead>
-          <tr>
-            <th>用户</th><th>评论内容</th><th>点赞数</th><th>发布时间</th>
-          </tr>
-        </thead>
+        <thead><tr><th>用户</th><th>评论内容</th><th>点赞数</th><th>发布时间</th></tr></thead>
         <tbody>
           <tr><td>@moto_fan</td><td>The new Z10 suspension is a game changer for rock crawling.</td><td>23</td><td>2026-05-15</td></tr>
           <tr><td>@trail_rider</td><td>Compared to the RZR, the cabin noise is significantly lower.</td><td>17</td><td>2026-05-12</td></tr>
@@ -305,9 +284,9 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 </section>
 
 <!-- ====== Workflow ====== -->
-<section class="workflow">
+<section class="section">
   <div class="container">
-    <h2>使用流程</h2>
+    <h2 style="text-align:center">使用流程</h2>
     <div class="workflow-steps">
       <div class="workflow-step"><div class="step-num">1</div><div class="step-label">搜索视频</div></div>
       <span class="workflow-arrow">→</span>
@@ -315,7 +294,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
       <span class="workflow-arrow">→</span>
       <div class="workflow-step"><div class="step-num">3</div><div class="step-label">预览评论</div></div>
       <span class="workflow-arrow">→</span>
-      <div class="workflow-step"><div class="step-num">4</div><div class="step-label">导出 CSV</div></div>
+      <div class="workflow-step"><div class="step-num">4</div><div class="step-label">导出数据</div></div>
     </div>
   </div>
 </section>
@@ -331,18 +310,23 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 <div class="export-bar" id="exportBar">
   <span class="badge" id="selectedCount">0</span>
   <span class="label">个视频已选</span>
-  <button class="btn btn-primary" id="exportBtn" onclick="doExport()">⬇ 导出 CSV</button>
+  <span class="stat-item" id="exportStats" style="display:none"></span>
+  <button class="btn btn-primary" id="exportBtn" onclick="doExport()">⬇ 导出</button>
 </div>
 
 <script>
 let videos = [];
 let previewCache = {};
 
-/* ====== Search ====== */
+async function quickSearch(kw) {
+  document.getElementById("keyword").value = kw;
+  doSearch();
+  document.getElementById("search").scrollIntoView({behavior:"smooth"});
+}
+
 async function doSearch() {
   const kw = document.getElementById("keyword").value.trim();
   if (!kw) return;
-
   setState("loading");
   try {
     const resp = await fetch(`/api/search?q=${encodeURIComponent(kw)}`);
@@ -353,10 +337,10 @@ async function doSearch() {
     renderCards();
     setState(videos.length ? "results" : "empty");
     document.getElementById("resultCount").textContent = videos.length ? `${videos.length} 个视频 · 按播放量降序` : "";
+    document.getElementById("searchHints").style.display = videos.length ? "none" : "flex";
   } catch (e) { setState("empty"); }
 }
 
-/* ====== Render ====== */
 function renderCards() {
   document.getElementById("videoList").innerHTML = videos.map((v, i) => `
     <div class="video-card" id="card-${i}">
@@ -367,7 +351,10 @@ function renderCards() {
         <img class="thumb" src="${v.thumbnail}" loading="lazy" onerror="this.style.opacity='0'">
         <div class="info">
           <div class="title" title="${esc(v.title)}">${esc(v.title)}</div>
-          <div class="meta"><span>${esc(v.channel)}</span></div>
+          <div class="meta">
+            <span>${esc(v.channel)}</span>
+            ${v.duration ? `<span class="duration">${v.duration}</span>` : ''}
+          </div>
         </div>
         <div class="stats">
           <span class="views">${fmt(v.view_count)} 次播放</span>
@@ -383,7 +370,6 @@ function renderCards() {
   updateUI();
 }
 
-/* ====== Preview ====== */
 async function togglePreview(i, event) {
   if (event.target.tagName === 'INPUT') return;
   const card = document.getElementById("card-" + i);
@@ -399,19 +385,18 @@ async function loadPreview(i) {
   const v = videos[i];
   const div = document.getElementById("preview-" + i);
   try {
-    const resp = await fetch("/api/export", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ video_ids: [v.video_id], preview: true }) });
+    const resp = await fetch("/api/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ video_ids: [v.video_id] }) });
     if (!resp.ok) { div.innerHTML = '<div style="color:var(--text-tertiary);font-size:13px;padding:16px 20px;">无法加载评论</div>'; return; }
     const data = await resp.json();
     if (!data.comments || data.comments.length === 0) { div.innerHTML = '<div style="color:var(--text-tertiary);font-size:13px;padding:16px 20px;">暂无评论</div>'; return; }
     previewCache[i] = data.comments;
     const top5 = data.comments.slice(0, 5);
-    div.innerHTML = `<div class="preview-header">评论预览 (${data.comments.length} 条)</div>` +
-      top5.map(c => `<div class="c-item"><div class="c-avatar">${c.author[0].toUpperCase()}</div><div class="c-body"><div class="c-author">${esc(c.author)}</div><div class="c-text">${esc(c.text.replace(/<br\s*\/?>/g,' '))}</div></div><span class="c-likes">${c.likes}</span></div>`).join('') +
+    div.innerHTML = `<div class="preview-header">评论预览 (${data.total || data.comments.length} 条)</div>` +
+      top5.map(c => `<div class="c-item"><div class="c-avatar">${c.author[0].toUpperCase()}</div><div class="c-body"><div class="c-author">${esc(c.author)}</div><div class="c-text">${esc(c.text.replace(/<br\s*\/?>/g,' '))}</div></div><span class="c-likes">👍 ${c.likes}</span></div>`).join('') +
       (data.comments.length > 5 ? `<div class="more-hint">... 还有 ${data.comments.length - 5} 条</div>` : '');
   } catch (e) { div.innerHTML = '<div style="color:var(--text-tertiary);font-size:13px;padding:16px 20px;">加载失败</div>'; }
 }
 
-/* ====== Selection ====== */
 function onCheck(i, checked) { document.getElementById("card-" + i).classList.toggle("selected", checked); updateUI(); }
 
 function toggleAll() {
@@ -422,42 +407,60 @@ function toggleAll() {
   updateUI();
 }
 
-function updateUI() {
+async function updateUI() {
   const checked = document.querySelectorAll("#videoList input[type='checkbox']:checked");
   const count = checked.length;
   document.getElementById("selectedCount").textContent = count;
   document.getElementById("exportBar").classList.toggle("visible", count > 0);
   document.getElementById("selectAllBtn").style.display = videos.length ? "inline" : "none";
+
+  // 拉取导出统计
+  if (count > 0) {
+    const ids = [...checked].map(cb => videos[cb.value].video_id);
+    const minLikes = parseInt(document.getElementById("minLikes").value);
+    try {
+      const resp = await fetch("/api/export/stats", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ video_ids: ids, min_likes: minLikes }) });
+      const s = await resp.json();
+      document.getElementById("exportStats").style.display = "inline";
+      document.getElementById("exportStats").innerHTML = `<strong>${s.total_comments}</strong> 条评论 · <strong>${s.total_likes}</strong> 点赞 · ${s.video_count} 个视频`;
+    } catch (e) {}
+  }
 }
 
-/* ====== Export ====== */
 async function doExport() {
   const checked = document.querySelectorAll("#videoList input[type='checkbox']:checked");
   const ids = [...checked].map(cb => videos[cb.value].video_id);
   if (!ids.length) return;
+
   const btn = document.getElementById("exportBtn");
+  const format = document.getElementById("exportFormat").value;
+  const minLikes = parseInt(document.getElementById("minLikes").value);
   btn.disabled = true; btn.textContent = "导出中...";
+
   try {
-    const resp = await fetch("/api/export", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ video_ids: ids }) });
-    if (!resp.ok) return;
+    const resp = await fetch("/api/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ video_ids: ids, format, min_likes: minLikes }),
+    });
+    if (!resp.ok) { alert("导出失败"); return; }
     const blob = await resp.blob();
     const a = document.createElement("a");
+    const ext = format === "xlsx" ? ".xlsx" : format === "json" ? ".json" : ".csv";
     a.href = URL.createObjectURL(blob);
-    a.download = "youtube_comments_" + new Date().toISOString().slice(0,10) + ".csv";
+    a.download = "youtube_comments_" + new Date().toISOString().slice(0,10) + ext;
     a.click(); URL.revokeObjectURL(a.href);
-  } catch (e) {} finally { btn.disabled = false; btn.textContent = "⬇ 导出 CSV"; }
+  } catch (e) {} finally { btn.disabled = false; btn.textContent = "⬇ 导出"; }
 }
 
-/* ====== State ====== */
 function setState(s) {
   document.getElementById("loading").classList.toggle("active", s === "loading");
   document.getElementById("resultsArea").classList.toggle("active", s === "results");
-  document.getElementById("emptyState").classList.toggle("active", s === "empty");
   document.getElementById("exportBar").classList.toggle("visible", false);
   document.getElementById("selectAllBtn").style.display = "none";
+  document.getElementById("searchHints").style.display = s === "empty" ? "flex" : "none";
 }
 
-/* ====== Utils ====== */
 function fmt(n) { return n >= 10000 ? (n/10000).toFixed(1) + "万" : n.toLocaleString(); }
 function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
 document.getElementById("keyword").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
