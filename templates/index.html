@@ -75,7 +75,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.video-card { animation: cardIn .2s ease both; }
+.video-card { animation: cardIn .35s ease both; }
 
 /* ====== Toast ====== */
 .toast {
@@ -415,7 +415,7 @@ function renderCards(append = false) {
   const baseDelay = append ? 0 : 0;
   const newHTML = videos.slice(startIdx).map((v, i) => {
     const idx = startIdx + i;
-    const delay = append ? 0.05 : (idx * 0.08);
+    const delay = append ? 0.06 : (idx * 0.12);
     return `
     <div class="video-card" id="card-${i}">
       <div class="card-main" onclick="togglePreview(${i}, event)">
@@ -504,10 +504,12 @@ async function updateUI() {
 }
 
 function showToast(msg) {
+  const existing = document.querySelector(".toast");
+  if (existing) existing.remove();
   const t = document.createElement("div");
   t.className = "toast"; t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2500);
+  setTimeout(() => { if (t.parentNode) t.remove(); }, 2500);
 }
 
 async function doExport() {
@@ -516,12 +518,18 @@ async function doExport() {
   if (!ids.length) return;
 
   const bar = document.getElementById("exportBar");
-  const btn = document.getElementById("exportBtn");
+  if (!bar) return;
+
   const format = document.getElementById("exportFormat").value;
   const minLikes = parseInt(document.getElementById("minLikes").value);
 
-  // 替换导出栏为步骤指示器
-  const origHTML = bar.innerHTML;
+  // 保存原始内容，确保有 badge/label/button
+  const badgeEl = bar.querySelector(".badge");
+  const labelEl = bar.querySelector(".label");
+  const btnEl = bar.querySelector("button");
+  if (!btnEl) { updateUI(); return; }
+
+  // 替换为步骤指示器
   bar.innerHTML = `
     <div class="export-steps">
       <span class="step active" id="step1"><span class="dot"></span>获取评论</span>
@@ -536,32 +544,35 @@ async function doExport() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ video_ids: ids, format, min_likes: minLikes }),
     });
-    document.getElementById("step1").className = "step done";
-    document.getElementById("step2").className = "step active";
+
+    const s1 = document.getElementById("step1");
+    const s2 = document.getElementById("step2");
+    const s3 = document.getElementById("step3");
+    if (s1) s1.className = "step done";
+    if (s2) s2.className = "step active";
 
     if (!resp.ok) {
-      bar.innerHTML = origHTML;
       showToast("导出失败");
       return;
     }
 
     const blob = await resp.blob();
-    document.getElementById("step2").className = "step done";
-    document.getElementById("step3").className = "step active";
+    if (s2) s2.className = "step done";
+    if (s3) s3.className = "step active";
 
     const a = document.createElement("a");
     const ext = format === "xlsx" ? ".xlsx" : format === "json" ? ".json" : ".csv";
     a.href = URL.createObjectURL(blob);
     a.download = "youtube_comments_" + new Date().toISOString().slice(0,10) + ext;
-    a.click(); URL.revokeObjectURL(a.href);
+    a.click();
+    URL.revokeObjectURL(a.href);
 
-    document.getElementById("step3").className = "step done";
+    if (s3) s3.className = "step done";
     await new Promise(r => setTimeout(r, 400));
-    showToast("✓ 导出成功");
+    showToast("\u2713 \u5BFC\u51FA\u6210\u529F");
   } catch (e) {
-    bar.innerHTML = origHTML;
+    showToast("\u5BFC\u51FA\u5931\u8D25");
   } finally {
-    bar.innerHTML = origHTML;
     updateUI();
   }
 }
