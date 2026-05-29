@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reddit Comment Research — by Fynn</title>
+<meta name="description" content="搜索 Reddit 帖子、抓取评论、一键导出数据。">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0d0d0d; --surface: #141414; --surface-raised: #1a1a1a;
+  --border: #262626; --border-hover: #333;
+  --text: #f5f5f5; --text-secondary: #a3a3a3; --text-tertiary: #737373;
+  --accent: #ff4500; --accent-hover: #e03d00; --accent-subtle: rgba(255,69,0,.08);
+  --green: #30a46c; --radius: 8px; --radius-lg: 12px;
+}
+html { scroll-behavior: smooth; }
+body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+h1 { font-size: 48px; font-weight: 700; letter-spacing: -1.5px; line-height: 1.1; }
+h2 { font-size: 32px; font-weight: 600; letter-spacing: -0.8px; }
+h3 { font-size: 18px; font-weight: 600; }
+.container { max-width: 1080px; margin: 0 auto; padding: 0 32px; }
+.section { padding: 80px 0; }
+
+/* Nav */
+.nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(13,13,13,.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
+.nav .container { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+.nav .logo { font-weight: 700; font-size: 15px; color: var(--text); }
+.nav .logo span { color: var(--accent); font-weight: 600; }
+.nav .nav-btn { font-size: 13px; color: var(--text-secondary); text-decoration: none; padding: 6px 16px; border-radius: 6px; border: 1px solid var(--border); }
+.nav .nav-btn:hover { background: var(--surface-raised); color: var(--text); }
+
+/* Hero */
+.hero { padding: 160px 0 80px; text-align: center; }
+.hero h1 { margin-bottom: 16px; max-width: 720px; margin-inline: auto; }
+.hero .subtitle { font-size: 18px; color: var(--text-secondary); max-width: 540px; margin: 0 auto 40px; }
+.hero .cta-group { display: flex; gap: 12px; justify-content: center; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: var(--radius); font-size: 15px; font-weight: 600; cursor: pointer; transition: all .15s; text-decoration: none; border: none; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-secondary { background: var(--surface-raised); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--border-hover); }
+
+/* Search */
+.search-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; }
+.search-row { display: flex; gap: 12px; }
+.search-row input { flex: 1; padding: 14px 18px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 16px; background: var(--bg); color: var(--text); outline: none; }
+.search-row input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
+.search-row input::placeholder { color: #404040; }
+.search-row button { padding: 14px 28px; }
+
+/* Results */
+.results-area { display: none; margin-top: 24px; }
+.results-area.active { display: block; }
+.results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; min-height: 32px; }
+.results-header .count { font-size: 14px; color: var(--text-tertiary); }
+.results-header .select-all { font-size: 13px; color: var(--accent); cursor: pointer; background: none; border: none; }
+.filter-row { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; padding: 10px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; }
+.filter-row label { color: var(--text-tertiary); }
+.filter-row select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 6px; font-size: 13px; outline: none; }
+
+/* Posts */
+.post-list { display: flex; flex-direction: column; gap: 8px; }
+.post-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; transition: border-color .15s; animation: cardIn .35s ease both; }
+@keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.post-card:hover { border-color: var(--border-hover); }
+.post-card.selected { border-color: var(--accent); background: rgba(255,69,0,.03); }
+.card-main { display: flex; align-items: flex-start; padding: 16px 20px; gap: 16px; cursor: pointer; }
+.card-main .cb-wrap input { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; margin-top: 2px; }
+.card-main .info { flex: 1; min-width: 0; }
+.card-main .info .title { font-size: 15px; font-weight: 500; color: var(--text); margin-bottom: 8px; line-height: 1.4; }
+.card-main .info .meta { font-size: 13px; color: var(--text-tertiary); display: flex; gap: 16px; flex-wrap: wrap; }
+.card-main .info .subreddit { color: var(--accent); font-weight: 500; }
+.card-main .stats { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 13px; }
+.card-main .stats .ups { color: var(--text-secondary); font-weight: 500; }
+.card-main .stats .cmts { color: var(--text-tertiary); }
+.card-main .stats .cmts.zero { color: #3d3d3d; }
+.card-main .expand-arrow { flex-shrink: 0; color: #3d3d3d; font-size: 14px; transition: transform .2s; margin-top: 2px; }
+.post-card.expanded .expand-arrow { transform: rotate(180deg); color: var(--accent); }
+
+/* Comment Preview */
+.comment-preview { display: none; border-top: 1px solid var(--border); }
+.post-card.expanded .comment-preview { display: block; max-height: 440px; overflow-y: auto; }
+.comment-preview .preview-header { padding: 12px 20px 8px; font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .5px; }
+.comment-preview .c-item { display: flex; gap: 10px; padding: 10px 20px; border-bottom: 1px solid rgba(255,255,255,.02); font-size: 13px; }
+.comment-preview .c-item:last-child { border-bottom: none; }
+.comment-preview .c-indent { border-left: 2px solid var(--border); margin-left: 8px; padding-left: 12px; }
+.comment-preview .c-avatar { width: 24px; height: 24px; border-radius: 50%; background: #1e1e1e; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--text-tertiary); }
+.comment-preview .c-body { flex: 1; min-width: 0; }
+.comment-preview .c-author { font-weight: 600; color: #ccc; margin-bottom: 2px; font-size: 12px; }
+.comment-preview .c-text { color: var(--text-secondary); line-height: 1.5; word-break: break-word; }
+.comment-preview .c-ups { color: #4a4a4a; font-size: 11px; flex-shrink: 0; }
+
+/* Export Bar */
+.export-bar { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); display: none; align-items: center; gap: 16px; background: var(--surface-raised); border: 1px solid var(--accent); border-radius: var(--radius-lg); padding: 14px 24px; box-shadow: 0 4px 24px rgba(0,0,0,.5); z-index: 100; }
+.export-bar.visible { display: flex; flex-wrap: wrap; }
+.export-bar .export-normal { display: flex; align-items: center; gap: 16px; }
+.export-bar .badge { background: var(--accent); color: #fff; padding: 2px 10px; border-radius: 4px; font-size: 13px; font-weight: 600; }
+.export-bar .label { color: var(--text-secondary); font-size: 13px; }
+.export-bar select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 13px; outline: none; }
+
+/* Toast */
+.toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); background: var(--surface-raised); border: 1px solid var(--green); color: var(--green); padding: 12px 28px; border-radius: var(--radius); font-size: 14px; z-index: 200; animation: toastIn .3s ease, toastOut .3s ease 2s forwards; }
+@keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(12px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+@keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+
+.loading-block { display: none; text-align: center; padding: 48px 0; }
+.loading-block.active { display: block; }
+.loading-dots { display: inline-flex; gap: 5px; }
+.loading-dots span { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: dotPulse 1.4s infinite ease-in-out; }
+.loading-dots span:nth-child(1) { animation-delay: 0s; }
+.loading-dots span:nth-child(2) { animation-delay: .16s; }
+.loading-dots span:nth-child(3) { animation-delay: .32s; }
+@keyframes dotPulse { 0%, 80%, 100% { transform: scale(.3); opacity: .2; } 40% { transform: scale(1); opacity: 1; } }
+
+.footer { border-top: 1px solid var(--border); padding: 40px 0; text-align: center; font-size: 13px; color: var(--text-tertiary); }
+.footer .brand { color: var(--text); font-weight: 600; }
+.footer .divider { margin: 0 10px; color: #2d2d2d; }
+
+@media (max-width: 768px) {
+  h1 { font-size: 32px; }
+  h2 { font-size: 24px; }
+  .container { padding: 0 20px; }
+  .hero { padding: 120px 0 48px; }
+  .section { padding: 48px 0; }
+  .search-row { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="container">
+    <div class="logo">Reddit Research <span>by Fynn</span></div>
+    <a href="#search" class="nav-btn">开始使用</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <h1>搜索 Reddit 帖子<br>抓取真实讨论</h1>
+    <p class="subtitle">全站搜索帖子及评论，导出结构化数据，获取真实用户声音。</p>
+    <div class="cta-group">
+      <a href="#search" class="btn btn-primary">开始搜索</a>
+      <button class="btn btn-secondary" onclick="quickSearch('UTV accessories')">查看示例</button>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="search">
+  <div class="container">
+    <h2 style="text-align:center">搜索 Reddit</h2>
+    <p style="text-align:center;color:var(--text-tertiary);margin-bottom:32px;font-size:15px;">全站搜索，按热度排序</p>
+    <div class="search-card">
+      <div class="search-row">
+        <input type="text" id="keyword" placeholder="输入关键词，如 UTV accessories..." autofocus>
+        <button class="btn btn-primary" id="searchBtn" onclick="doSearch()">搜索</button>
+      </div>
+      <div class="loading-block" id="loading"><div class="loading-dots"><span></span><span></span><span></span></div></div>
+      <div class="results-area" id="resultsArea">
+        <div class="results-header">
+          <span class="count" id="resultCount"></span>
+          <button class="select-all" id="selectAllBtn" onclick="toggleAll()" style="display:none">全选 / 取消</button>
+        </div>
+        <div class="filter-row">
+          <label>排序</label>
+          <select id="sortBy" onchange="applySort()">
+            <option value="ups_desc">点赞数 ↓</option>
+            <option value="ups_asc">点赞数 ↑</option>
+            <option value="comments_desc">评论数 ↓</option>
+            <option value="comments_asc">评论数 ↑</option>
+            <option value="date_desc">最新</option>
+            <option value="date_asc">最早</option>
+          </select>
+          <label style="margin-left:12px">导出格式</label>
+          <select id="exportFormat">
+            <option value="csv">CSV</option>
+            <option value="xlsx">Excel</option>
+            <option value="json">JSON</option>
+          </select>
+        </div>
+        <div class="post-list" id="postList"></div>
+        <div style="text-align:center;padding:24px;display:none" id="loadMoreWrap">
+          <button class="btn btn-secondary" id="loadMoreBtn" onclick="loadMore()">加载更多</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container"><span class="brand">Reddit Research</span> <span class="divider">·</span> by Fynn <span class="divider">·</span> Powered by Reddit JSON API</div>
+</footer>
+
+<div class="export-bar" id="exportBar">
+  <div class="export-normal">
+    <span class="badge" id="selectedCount">0</span>
+    <span class="label">个帖子已选</span>
+    <button class="btn btn-primary" onclick="doExport()">⬇ 导出</button>
+  </div>
+</div>
+
+<script>
+var posts = [];
+var previewCache = {};
+var afterToken = "";
+var currentKeyword = "";
+
+function quickSearch(kw) { document.getElementById("keyword").value = kw; doSearch(); }
+
+async function doSearch() {
+  var kw = document.getElementById("keyword").value.trim();
+  if (!kw) return;
+  currentKeyword = kw;
+  setState("loading");
+  try {
+    var resp = await fetch("/reddit/api/search?q=" + encodeURIComponent(kw));
+    var data = await resp.json();
+    if (data.error) { setState("empty"); return; }
+    posts = data.posts || [];
+    afterToken = data.after || "";
+    previewCache = {};
+    renderPosts();
+    setState(posts.length ? "results" : "empty");
+    document.getElementById("resultCount").textContent = posts.length ? posts.length + " 个帖子" : "";
+  } catch(e) { setState("empty"); }
+}
+
+function renderPosts() {
+  document.getElementById("postList").innerHTML = posts.map(function(v, i) {
+    var d = new Date(v.created_utc * 1000);
+    var dateStr = d.toISOString().slice(0,10);
+    return '<div class="post-card" id="card-' + i + '" style="animation-delay:' + (i*0.08) + 's">' +
+      '<div class="card-main" onclick="togglePreview(' + i + ', event)">' +
+      '<div class="cb-wrap" onclick="event.stopPropagation()"><input type="checkbox" value="' + i + '" ' + (v.num_comments===0?'disabled':'') + ' onchange="onCheck(' + i + ', this.checked)"></div>' +
+      '<div class="info"><div class="title">' + esc(v.title) + '</div>' +
+      '<div class="meta"><span class="subreddit">' + esc(v.subreddit) + '</span><span>' + esc(v.author) + '</span><span>' + dateStr + '</span></div></div>' +
+      '<div class="stats"><span class="ups">⬆ ' + fmt(v.ups) + '</span><span class="cmts ' + (v.num_comments===0?'zero':'') + '">💬 ' + (v.num_comments===0?'无':fmt(v.num_comments)) + '</span></div>' +
+      '<span class="expand-arrow">▾</span></div>' +
+      '<div class="comment-preview" id="preview-' + i + '"><div style="color:var(--text-tertiary);font-size:13px;padding:16px 20px;">加载中...</div></div></div>';
+  }).join("");
+  updateUI();
+}
+
+async function togglePreview(i, event) {
+  if (event.target.tagName === "INPUT") return;
+  var card = document.getElementById("card-" + i);
+  var wasExpanded = card.classList.contains("expanded");
+  document.querySelectorAll(".post-card.expanded").forEach(function(c) { c.classList.remove("expanded"); });
+  if (!wasExpanded) { card.classList.add("expanded"); if (!previewCache[i]) await loadPreview(i); }
+}
+
+async function loadPreview(i) {
+  var p = posts[i];
+  var div = document.getElementById("preview-" + i);
+  try {
+    var resp = await fetch("/reddit/api/comments?id=" + p.id);
+    var data = await resp.json();
+    if (!data.comments || !data.comments.length) { div.innerHTML = '<div style="color:var(--text-tertiary);font-size:13px;padding:16px 20px;">暂无评论</div>'; return; }
+    previewCache[i] = data.comments;
+    var top5 = data.comments.slice(0, 5);
+    div.innerHTML = '<div class="preview-header">评论预览 (' + data.total + ' 条)</div>' +
+      top5.map(function(c) {
+        var indent = c.depth > 0 ? ' c-indent' : '';
+        return '<div class="c-item' + indent + '"><div class="c-avatar">' + (c.author[0]||'?').toUpperCase() + '</div><div class="c-body"><div class="c-author">' + esc(c.author) + '</div><div class="c-text">' + esc(c.body) + '</div></div><span class="c-ups">⬆ ' + c.ups + '</span></div>';
+      }).join('') + (data.comments.length > 5 ? '<div style="text-align:center;color:#3d3d3d;font-size:11px;padding:10px">... 还有 ' + (data.comments.length-5) + ' 条</div>' : '');
+  } catch(e) { div.innerHTML = '<div style="color:var(--text-tertiary);font-size:13px;padding:16px 20px;">加载失败</div>'; }
+}
+
+function onCheck(i, checked) { document.getElementById("card-" + i).classList.toggle("selected", checked); updateUI(); }
+function toggleAll() {
+  var cbs = document.querySelectorAll("#postList input[type='checkbox']:not(:disabled)");
+  var allChecked = Array.from(cbs).every(function(cb) { return cb.checked; });
+  cbs.forEach(function(cb) { cb.checked = !allChecked; });
+  document.querySelectorAll(".post-card").forEach(function(c) { var cb = c.querySelector("input"); c.classList.toggle("selected", cb && cb.checked); });
+  updateUI();
+}
+function updateUI() {
+  var checked = document.querySelectorAll("#postList input[type='checkbox']:checked");
+  var count = checked.length;
+  document.getElementById("selectedCount").textContent = count;
+  document.getElementById("exportBar").classList.toggle("visible", count > 0);
+  document.getElementById("selectAllBtn").style.display = posts.length ? "inline" : "none";
+  document.getElementById("loadMoreWrap").style.display = afterToken ? "block" : "none";
+}
+
+async function loadMore() {
+  if (!afterToken || !currentKeyword) return;
+  var btn = document.getElementById("loadMoreBtn"); btn.disabled = true; btn.textContent = "加载中...";
+  try {
+    var resp = await fetch("/reddit/api/search?q=" + encodeURIComponent(currentKeyword) + "&after=" + afterToken);
+    var data = await resp.json();
+    var newPosts = data.posts || [];
+    afterToken = data.after || "";
+    posts = posts.concat(newPosts);
+    renderPosts();
+    document.getElementById("resultCount").textContent = posts.length + " 个帖子";
+  } catch(e) {} finally { btn.disabled = false; btn.textContent = "加载更多"; }
+}
+
+function showToast(msg) {
+  var t = document.createElement("div"); t.className = "toast"; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(function() { if(t.parentNode)t.remove(); }, 2500);
+}
+
+function doExport() {
+  var checked = document.querySelectorAll("#postList input[type='checkbox']:checked");
+  var ids = Array.from(checked).map(function(cb) { return posts[cb.value].id; });
+  if (!ids.length) return;
+  var bar = document.getElementById("exportBar");
+  var format = document.getElementById("exportFormat").value;
+  var oldHTML = bar.innerHTML;
+  bar.innerHTML = '<span style="color:var(--accent);">⏳ 导出中...</span>';
+  fetch("/reddit/api/export", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: ids, format: format }) })
+    .then(function(r) { if(!r.ok) throw new Error("导出失败"); return r.blob(); })
+    .then(function(blob) {
+      var a = document.createElement("a"); var ext = format==="xlsx"?".xlsx":format==="json"?".json":".csv";
+      a.href = URL.createObjectURL(blob); a.download = "reddit_comments_" + new Date().toISOString().slice(0,10) + ext;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
+      showToast("✓ 导出成功");
+    }).catch(function(e) { showToast("导出失败"); }).finally(function() { bar.innerHTML = oldHTML; });
+}
+
+function applySort() {
+  var sort = document.getElementById("sortBy").value;
+  if (sort === "ups_desc") posts.sort(function(a,b){return b.ups-a.ups});
+  else if (sort === "ups_asc") posts.sort(function(a,b){return a.ups-b.ups});
+  else if (sort === "comments_desc") posts.sort(function(a,b){return b.num_comments-a.num_comments});
+  else if (sort === "comments_asc") posts.sort(function(a,b){return a.num_comments-b.num_comments});
+  else if (sort === "date_desc") posts.sort(function(a,b){return b.created_utc-a.created_utc});
+  else if (sort === "date_asc") posts.sort(function(a,b){return a.created_utc-b.created_utc});
+  renderPosts();
+}
+
+function setState(s) {
+  document.getElementById("loading").classList.toggle("active", s==="loading");
+  document.getElementById("resultsArea").classList.toggle("active", s==="results");
+  document.getElementById("exportBar").classList.toggle("visible", false);
+}
+function fmt(n) { return n>=10000?(n/10000).toFixed(1)+"万":n.toLocaleString(); }
+function esc(s) { var d=document.createElement("div");d.textContent=s;return d.innerHTML; }
+document.getElementById("keyword").addEventListener("keydown",function(e){if(e.key==="Enter")doSearch();});
+</script>
+</body>
+</html>
