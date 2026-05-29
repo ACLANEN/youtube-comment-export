@@ -70,6 +70,33 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .empty-hints span { font-size: 13px; color: var(--text-tertiary); background: var(--bg); padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); cursor: pointer; transition: all .15s; }
 .empty-hints span:hover { border-color: var(--accent); color: var(--accent); }
 
+/* ====== Card Entrance Animation ====== */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.video-card { animation: cardIn .2s ease both; }
+
+/* ====== Toast ====== */
+.toast {
+  position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+  background: var(--surface-raised); border: 1px solid var(--green);
+  color: var(--green); padding: 12px 28px; border-radius: var(--radius);
+  font-size: 14px; font-weight: 500; z-index: 200;
+  animation: toastIn .3s ease, toastOut .3s ease 2s forwards;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+@keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(12px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+@keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* ====== Step Indicator ====== */
+.export-steps { display: flex; gap: 24px; font-size: 12px; color: var(--text-tertiary); }
+.export-steps .step { display: flex; align-items: center; gap: 6px; }
+.export-steps .step .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: all .3s; }
+.export-steps .step.active .dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.export-steps .step.done .dot { background: var(--green); }
+.export-steps .step.done { color: var(--green); }
+
 /* ====== Results ====== */
 .results-area { display: none; margin-top: 24px; }
 .results-area.active { display: block; }
@@ -385,8 +412,10 @@ async function doSearch() {
 function renderCards(append = false) {
   const container = document.getElementById("videoList");
   const startIdx = append ? container.children.length : 0;
+  const baseDelay = append ? 0 : 0;
   const newHTML = videos.slice(startIdx).map((v, i) => {
     const idx = startIdx + i;
+    const delay = append ? 0.05 : (idx * 0.08);
     return `
     <div class="video-card" id="card-${i}">
       <div class="card-main" onclick="togglePreview(${i}, event)">
@@ -474,15 +503,32 @@ async function updateUI() {
   }
 }
 
+function showToast(msg) {
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
 async function doExport() {
   const checked = document.querySelectorAll("#videoList input[type='checkbox']:checked");
   const ids = [...checked].map(cb => videos[cb.value].video_id);
   if (!ids.length) return;
 
+  const bar = document.getElementById("exportBar");
   const btn = document.getElementById("exportBtn");
   const format = document.getElementById("exportFormat").value;
   const minLikes = parseInt(document.getElementById("minLikes").value);
-  btn.disabled = true; btn.textContent = "导出中...";
+
+  // 替换导出栏为步骤指示器
+  const origHTML = bar.innerHTML;
+  bar.innerHTML = `
+    <div class="export-steps">
+      <span class="step active" id="step1"><span class="dot"></span>获取评论</span>
+      <span class="step" id="step2"><span class="dot"></span>生成文件</span>
+      <span class="step" id="step3"><span class="dot"></span>下载</span>
+    </div>
+  `;
 
   try {
     const resp = await fetch("/api/export", {
@@ -490,14 +536,34 @@ async function doExport() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ video_ids: ids, format, min_likes: minLikes }),
     });
-    if (!resp.ok) { alert("导出失败"); return; }
+    document.getElementById("step1").className = "step done";
+    document.getElementById("step2").className = "step active";
+
+    if (!resp.ok) {
+      bar.innerHTML = origHTML;
+      showToast("导出失败");
+      return;
+    }
+
     const blob = await resp.blob();
+    document.getElementById("step2").className = "step done";
+    document.getElementById("step3").className = "step active";
+
     const a = document.createElement("a");
     const ext = format === "xlsx" ? ".xlsx" : format === "json" ? ".json" : ".csv";
     a.href = URL.createObjectURL(blob);
     a.download = "youtube_comments_" + new Date().toISOString().slice(0,10) + ext;
     a.click(); URL.revokeObjectURL(a.href);
-  } catch (e) {} finally { btn.disabled = false; btn.textContent = "⬇ 导出"; }
+
+    document.getElementById("step3").className = "step done";
+    await new Promise(r => setTimeout(r, 400));
+    showToast("✓ 导出成功");
+  } catch (e) {
+    bar.innerHTML = origHTML;
+  } finally {
+    bar.innerHTML = origHTML;
+    updateUI();
+  }
 }
 
 function setState(s) {
@@ -506,6 +572,8 @@ function setState(s) {
   document.getElementById("exportBar").classList.toggle("visible", false);
   document.getElementById("selectAllBtn").style.display = "none";
   document.getElementById("searchHints").style.display = s === "empty" ? "flex" : "none";
+  // 重置卡片动画
+  document.querySelectorAll(".video-card").forEach(c => { c.style.animation = "none"; c.offsetHeight; c.style.animation = ""; });
   document.getElementById("loadMoreWrap").classList.toggle("active", s === "results" && !!nextPageToken);
 }
 
