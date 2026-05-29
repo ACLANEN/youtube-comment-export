@@ -117,6 +117,13 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .comment-preview .c-likes { color: #4a4a4a; font-size: 11px; flex-shrink: 0; margin-left: 8px; }
 .comment-preview .more-hint { text-align: center; color: #3d3d3d; font-size: 11px; padding: 10px 0; }
 
+/* ====== Load More ====== */
+.load-more-wrap { display: none; text-align: center; padding: 24px 0; }
+.load-more-wrap.active { display: block; }
+.load-more-btn { padding: 12px 48px; background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); border-radius: var(--radius); font-size: 14px; cursor: pointer; transition: all .15s; }
+.load-more-btn:hover { border-color: var(--accent); color: var(--accent); }
+.load-more-btn:disabled { opacity: .4; cursor: not-allowed; }
+
 /* ====== Loading ====== */
 .loading-block { display: none; text-align: center; padding: 48px 0; }
 .loading-block.active { display: block; }
@@ -286,6 +293,9 @@ p, li { font-size: 16px; color: var(--text-secondary); }
         </div>
 
         <div class="video-list" id="videoList"></div>
+        <div class="load-more-wrap" id="loadMoreWrap">
+          <button class="load-more-btn" id="loadMoreBtn" onclick="loadMore()">加载更多</button>
+        </div>
       </div>
     </div>
   </div>
@@ -344,6 +354,8 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 <script>
 let videos = [];
 let previewCache = {};
+let nextPageToken = "";
+let currentKeyword = "";
 
 async function quickSearch(kw) {
   document.getElementById("keyword").value = kw;
@@ -360,6 +372,8 @@ async function doSearch() {
     const data = await resp.json();
     if (data.error) { setState("empty"); return; }
     videos = data.videos || [];
+    nextPageToken = data.nextPageToken || "";
+    currentKeyword = kw;
     previewCache = {};
     renderCards();
     setState(videos.length ? "results" : "empty");
@@ -368,8 +382,12 @@ async function doSearch() {
   } catch (e) { setState("empty"); }
 }
 
-function renderCards() {
-  document.getElementById("videoList").innerHTML = videos.map((v, i) => `
+function renderCards(append = false) {
+  const container = document.getElementById("videoList");
+  const startIdx = append ? container.children.length : 0;
+  const newHTML = videos.slice(startIdx).map((v, i) => {
+    const idx = startIdx + i;
+    return `
     <div class="video-card" id="card-${i}">
       <div class="card-main" onclick="togglePreview(${i}, event)">
         <div class="cb-wrap" onclick="event.stopPropagation()">
@@ -393,7 +411,8 @@ function renderCards() {
         <div style="color:var(--text-tertiary);font-size:13px;padding:16px 20px;">加载中...</div>
       </div>
     </div>
-  `).join("");
+  `;}).join("");
+  if (append) { container.insertAdjacentHTML("beforeend", newHTML); } else { container.innerHTML = newHTML; }
   updateUI();
 }
 
@@ -440,6 +459,7 @@ async function updateUI() {
   document.getElementById("selectedCount").textContent = count;
   document.getElementById("exportBar").classList.toggle("visible", count > 0);
   document.getElementById("selectAllBtn").style.display = videos.length ? "inline" : "none";
+  document.getElementById("loadMoreWrap").classList.toggle("active", !!nextPageToken);
 
   // 拉取导出统计
   if (count > 0) {
@@ -486,6 +506,26 @@ function setState(s) {
   document.getElementById("exportBar").classList.toggle("visible", false);
   document.getElementById("selectAllBtn").style.display = "none";
   document.getElementById("searchHints").style.display = s === "empty" ? "flex" : "none";
+  document.getElementById("loadMoreWrap").classList.toggle("active", s === "results" && !!nextPageToken);
+}
+
+async function loadMore() {
+  if (!nextPageToken || !currentKeyword) return;
+  const btn = document.getElementById("loadMoreBtn");
+  btn.disabled = true; btn.textContent = "加载中...";
+  try {
+    const resp = await fetch(`/api/search?q=${encodeURIComponent(currentKeyword)}&pageToken=${encodeURIComponent(nextPageToken)}`);
+    const data = await resp.json();
+    if (data.error) return;
+    const newVideos = data.videos || [];
+    nextPageToken = data.nextPageToken || "";
+    videos = videos.concat(newVideos);
+    renderCards(true);
+    document.getElementById("resultCount").textContent = `${videos.length} 个视频 · 按播放量降序`;
+  } catch (e) {} finally {
+    btn.disabled = false; btn.textContent = "加载更多";
+    if (!nextPageToken) { document.getElementById("loadMoreWrap").classList.remove("active"); }
+  }
 }
 
 function fmt(n) { return n >= 10000 ? (n/10000).toFixed(1) + "万" : n.toLocaleString(); }

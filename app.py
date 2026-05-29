@@ -45,11 +45,16 @@ def index():
 @app.route("/api/search")
 def api_search():
     keyword = request.args.get("q", "").strip()
+    page_token = request.args.get("pageToken", "")
     if not keyword:
         return jsonify({"error": "关键词不能为空"}), 400
 
+    path = f"search?part=snippet&q={keyword}&type=video&maxResults=50"
+    if page_token:
+        path += f"&pageToken={page_token}"
+
     try:
-        data = _youtube_get(f"search?part=snippet&q={keyword}&type=video&maxResults=50")
+        data = _youtube_get(path)
     except Exception as e:
         return jsonify({"error": f"搜索失败: {str(e)}"}), 500
 
@@ -94,7 +99,13 @@ def api_search():
         v["duration"] = st.get("duration", "")
 
     videos.sort(key=lambda v: v["view_count"], reverse=True)
-    return jsonify({"videos": videos})
+
+    # 全量排序时，如果有多页，标记 nextPageToken
+    # 注意：分页搜索会打乱排序，所以这里用全量一次性返回50，翻页时前端再拉新一批
+    return jsonify({
+        "videos": videos,
+        "nextPageToken": data.get("nextPageToken", ""),
+    })
 
 
 def _fetch_comments(vid: str, min_likes: int = 0) -> list[dict]:
