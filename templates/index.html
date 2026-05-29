@@ -3,243 +3,333 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YT Comment Exporter — by Fynn</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🎬</text></svg>">
+<title>YouTube Comment Research — 评论调研工具</title>
+<meta name="description" content="快速获取 YouTube 视频评论数据。搜索视频、抓取评论、一键导出 CSV，用真实用户反馈支持市场调研与运营决策。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>💬</text></svg>">
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
+/* ====== Reset & Variables ====== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-  --bg: #08080f;
-  --surface: #101018;
-  --surface-hover: #161622;
-  --border: #1e1e2e;
-  --border-active: #ff4444;
-  --text: #e2e2e8;
-  --text-dim: #666;
-  --text-mid: #999;
-  --accent: #ff4444;
-  --accent-glow: rgba(255,68,68,.15);
-  --radius: 14px;
+  --bg: #0d0d0d;
+  --surface: #141414;
+  --surface-raised: #1a1a1a;
+  --border: #262626;
+  --border-hover: #333;
+  --text: #f5f5f5;
+  --text-secondary: #a3a3a3;
+  --text-tertiary: #737373;
+  --accent: #2383e2;
+  --accent-hover: #1a6fc4;
+  --accent-subtle: rgba(35,131,226,.08);
+  --red: #e5484d;
+  --green: #30a46c;
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 2px 8px rgba(0,0,0,.15);
 }
 
+html { scroll-behavior: smooth; }
 body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
   background: var(--bg);
   color: var(--text);
-  min-height: 100vh;
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* 背景纹理 */
-body::before {
-  content: "";
-  position: fixed; inset: 0;
-  background: radial-gradient(ellipse 60% 50% at 50% -10%, rgba(255,68,68,.04), transparent),
-              radial-gradient(ellipse 40% 40% at 80% 80%, rgba(100,100,255,.03), transparent);
-  pointer-events: none; z-index: 0;
-}
+/* ====== Typography ====== */
+h1 { font-size: 48px; font-weight: 700; letter-spacing: -1.5px; line-height: 1.1; }
+h2 { font-size: 32px; font-weight: 600; letter-spacing: -0.8px; }
+h3 { font-size: 18px; font-weight: 600; }
+p, li { font-size: 16px; color: var(--text-secondary); }
+.text-sm { font-size: 14px; color: var(--text-tertiary); }
 
-.container { max-width: 980px; margin: 0 auto; padding: 40px 24px 100px; position: relative; z-index: 1; }
+/* ====== Layout ====== */
+.container { max-width: 1080px; margin: 0 auto; padding: 0 32px; }
+.section { padding: 80px 0; }
 
-/* ====== 头部 ====== */
-.header { text-align: center; margin-bottom: 32px; }
-.header .logo { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.header .logo .icon { font-size: 32px; filter: drop-shadow(0 2px 8px rgba(255,68,68,.3)); }
-.header h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.8px; }
-.header h1 .gradient { background: linear-gradient(135deg, #ff4444 0%, #ff6b6b 40%, #ff8e8e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.header .byline { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
-.header .byline .name { color: var(--accent); font-weight: 600; }
+/* ====== Nav ====== */
+.nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(13,13,13,.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
+.nav .container { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+.nav .logo { font-weight: 700; font-size: 15px; color: var(--text); letter-spacing: -0.3px; }
+.nav .logo span { color: var(--text-tertiary); font-weight: 400; }
+.nav .nav-btn { font-size: 13px; color: var(--text-secondary); text-decoration: none; padding: 6px 16px; border-radius: var(--radius-sm); transition: all .15s; border: 1px solid var(--border); }
+.nav .nav-btn:hover { background: var(--surface-raised); color: var(--text); }
 
-/* ====== 搜索 ====== */
-.search-wrap { position: relative; margin-bottom: 24px; }
-.search-wrap .search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); font-size: 18px; color: var(--text-dim); pointer-events: none; z-index: 1; }
-.search-wrap input {
-  width: 100%; padding: 17px 120px 17px 50px;
-  border: 1.5px solid var(--border); border-radius: var(--radius);
-  font-size: 16px; background: var(--surface); color: var(--text);
-  outline: none; transition: all .25s;
-}
-.search-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 5px var(--accent-glow); }
-.search-wrap input::placeholder { color: #333; }
-.search-wrap button {
-  position: absolute; right: 6px; top: 6px; bottom: 6px;
-  padding: 0 28px;
-  background: linear-gradient(135deg, #ff4444, #d63030);
-  color: #fff; border: none; border-radius: 10px;
-  font-size: 15px; font-weight: 700; cursor: pointer;
-  transition: all .2s; letter-spacing: 0.5px;
-}
-.search-wrap button:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,68,68,.35); }
-.search-wrap button:active { transform: translateY(0); }
-.search-wrap button:disabled { opacity: .35; transform: none; box-shadow: none; cursor: not-allowed; }
+/* ====== Hero ====== */
+.hero { padding: 160px 0 80px; text-align: center; }
+.hero h1 { margin-bottom: 16px; max-width: 720px; margin-left: auto; margin-right: auto; }
+.hero .subtitle { font-size: 18px; color: var(--text-secondary); max-width: 540px; margin: 0 auto 40px; line-height: 1.6; }
+.hero .cta-group { display: flex; gap: 12px; justify-content: center; align-items: center; }
 
-/* ====== 状态栏 ====== */
-.status-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; min-height: 26px; }
-.status-msg { font-size: 13px; color: var(--text-dim); transition: color .3s; }
-.status-msg.success { color: #4caf50; }
-.status-msg.error { color: var(--accent); }
-.status-actions { display: none; align-items: center; gap: 16px; }
-.status-actions.visible { display: flex; }
-.btn-text { color: var(--accent); font-size: 13px; cursor: pointer; font-weight: 500; background: none; border: none; transition: opacity .15s; }
-.btn-text:hover { opacity: .8; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: var(--radius); font-size: 15px; font-weight: 600; cursor: pointer; transition: all .15s; text-decoration: none; border: none; letter-spacing: -0.2px; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-secondary { background: var(--surface-raised); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--border-hover); background: #1f1f1f; }
+
+/* ====== Features ====== */
+.features { padding: 0 0 80px; }
+.features h2 { text-align: center; margin-bottom: 48px; }
+.feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.feature-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; transition: border-color .15s; }
+.feature-card:hover { border-color: var(--border-hover); }
+.feature-card .icon { font-size: 24px; margin-bottom: 16px; }
+.feature-card h3 { margin-bottom: 8px; }
+.feature-card p { font-size: 14px; color: var(--text-tertiary); line-height: 1.6; }
+
+/* ====== Search Section ====== */
+.search-section { padding: 0 0 80px; }
+.search-section h2 { text-align: center; margin-bottom: 16px; }
+.search-section .section-desc { text-align: center; color: var(--text-tertiary); margin-bottom: 32px; font-size: 15px; }
+.search-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; }
+.search-row { display: flex; gap: 12px; }
+.search-row input { flex: 1; padding: 14px 18px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 16px; background: var(--bg); color: var(--text); outline: none; transition: border-color .15s; }
+.search-row input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
+.search-row input::placeholder { color: #404040; }
+.search-row button { padding: 14px 28px; }
+
+/* ====== Results ====== */
+.results-area { display: none; margin-top: 24px; }
+.results-area.active { display: block; }
+
+.results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; min-height: 32px; }
+.results-header .count { font-size: 14px; color: var(--text-tertiary); }
+.results-header .select-all { font-size: 13px; color: var(--accent); cursor: pointer; background: none; border: none; }
+.results-header .select-all:hover { text-decoration: underline; }
+
+.video-list { display: flex; flex-direction: column; gap: 8px; }
+.video-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; transition: border-color .15s; }
+.video-card:hover { border-color: var(--border-hover); }
+.video-card.selected { border-color: var(--accent); background: rgba(35,131,226,.03); }
+
+.card-main { display: flex; align-items: center; padding: 14px 20px; gap: 16px; cursor: pointer; }
+.card-main .cb-wrap input { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
+.card-main .thumb { width: 120px; height: 68px; border-radius: var(--radius-sm); object-fit: cover; background: #1a1a1a; flex-shrink: 0; }
+.card-main .info { flex: 1; min-width: 0; }
+.card-main .info .title { font-size: 15px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
+.card-main .info .meta { font-size: 13px; color: var(--text-tertiary); display: flex; gap: 16px; }
+.card-main .stats { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 13px; }
+.card-main .stats .views { color: var(--text-secondary); font-weight: 500; }
+.card-main .stats .cmts { color: var(--text-tertiary); }
+.card-main .stats .cmts.zero { color: #3d3d3d; }
+.card-main .expand-arrow { flex-shrink: 0; color: #3d3d3d; font-size: 14px; transition: transform .2s; }
+.video-card.expanded .expand-arrow { transform: rotate(180deg); color: var(--accent); }
+
+.comment-preview { display: none; border-top: 1px solid var(--border); }
+.video-card.expanded .comment-preview { display: block; max-height: 440px; overflow-y: auto; }
+.comment-preview .preview-header { padding: 12px 20px 8px; font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .5px; }
+.comment-preview .c-item { display: flex; gap: 12px; padding: 10px 20px; border-bottom: 1px solid rgba(255,255,255,.02); font-size: 13px; }
+.comment-preview .c-item:last-child { border-bottom: none; }
+.comment-preview .c-avatar { width: 26px; height: 26px; border-radius: 50%; background: #1e1e1e; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--text-tertiary); }
+.comment-preview .c-body { flex: 1; min-width: 0; }
+.comment-preview .c-author { font-weight: 600; color: #ccc; margin-bottom: 2px; font-size: 12px; }
+.comment-preview .c-text { color: var(--text-secondary); line-height: 1.5; word-break: break-word; }
+.comment-preview .c-likes { color: #4a4a4a; font-size: 11px; flex-shrink: 0; margin-left: 8px; }
+.comment-preview .more-hint { text-align: center; color: #3d3d3d; font-size: 11px; padding: 10px 0; }
 
 /* ====== Loading ====== */
-.loading { display: none; text-align: center; padding: 64px 0; }
-.loading.active { display: block; }
-.loading .dots { display: inline-flex; gap: 6px; }
-.loading .dots span { width: 10px; height: 10px; background: var(--accent); border-radius: 50%; animation: dotBounce 1.4s infinite ease-in-out; }
-.loading .dots span:nth-child(1) { animation-delay: 0s; }
-.loading .dots span:nth-child(2) { animation-delay: .16s; }
-.loading .dots span:nth-child(3) { animation-delay: .32s; }
-@keyframes dotBounce { 0%, 80%, 100% { transform: scale(.3); opacity: .2; } 40% { transform: scale(1); opacity: 1; } }
+.loading-block { display: none; text-align: center; padding: 48px 0; }
+.loading-block.active { display: block; }
+.loading-dots { display: inline-flex; gap: 5px; }
+.loading-dots span { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: dotPulse 1.4s infinite ease-in-out; }
+.loading-dots span:nth-child(1) { animation-delay: 0s; }
+.loading-dots span:nth-child(2) { animation-delay: .16s; }
+.loading-dots span:nth-child(3) { animation-delay: .32s; }
+@keyframes dotPulse { 0%, 80%, 100% { transform: scale(.3); opacity: .2; } 40% { transform: scale(1); opacity: 1; } }
 
-/* ====== 视频卡片 ====== */
-.video-list { display: none; flex-direction: column; gap: 8px; }
-.video-list.active { display: flex; }
+/* ====== Empty State ====== */
+.empty-state { display: none; text-align: center; padding: 48px 0; }
+.empty-state.active { display: block; }
+.empty-state .msg { color: var(--text-tertiary); font-size: 15px; }
 
-.video-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); overflow: hidden;
-  transition: all .25s ease;
-}
-.video-card:hover { border-color: #2a2a40; background: var(--surface-hover); }
-.video-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 16px var(--accent-glow); }
-
-.card-main { display: flex; align-items: center; padding: 12px 16px; gap: 14px; cursor: pointer; }
-.card-main .cb-wrap { flex-shrink: 0; }
-.card-main .cb-wrap input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; border-radius: 4px; }
-.card-main .thumb { flex-shrink: 0; width: 120px; height: 68px; border-radius: 8px; object-fit: cover; background: #1a1a2e; }
-.card-main .info { flex: 1; min-width: 0; }
-.card-main .info .title { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
-.card-main .info .meta-row { font-size: 12px; color: var(--text-mid); display: flex; gap: 14px; align-items: center; }
-.card-main .stats { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 12px; }
-.card-main .stats .view-count { font-weight: 600; color: #aaa; }
-.card-main .stats .comment-count { color: var(--text-mid); }
-.card-main .stats .comment-count.zero { color: #3a3a3a; }
-.card-main .expand-icon { flex-shrink: 0; color: #3a3a3a; font-size: 16px; width: 22px; text-align: center; transition: all .25s; }
-.video-card.expanded .expand-icon { transform: rotate(180deg); color: var(--accent); }
-
-/* 评论预览 */
-.comment-preview { display: none; border-top: 1px solid var(--border); overflow: hidden; }
-.video-card.expanded .comment-preview { display: block; max-height: 520px; overflow-y: auto; }
-.comment-preview .preview-header { padding: 12px 16px 4px; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
-.comment-preview .c-item { display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,.02); font-size: 13px; }
-.comment-preview .c-item:last-child { border-bottom: none; }
-.comment-preview .c-avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #2a2a3a, #1a1a2a); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--text-dim); }
-.comment-preview .c-body { flex: 1; min-width: 0; }
-.comment-preview .c-author { font-weight: 600; color: #ccc; margin-bottom: 3px; font-size: 12px; }
-.comment-preview .c-text { color: var(--text-mid); line-height: 1.55; word-break: break-word; }
-.comment-preview .c-likes { color: #4a4a5a; font-size: 11px; flex-shrink: 0; margin-left: 8px; }
-.comment-preview .more-hint { text-align: center; color: #3a3a3a; font-size: 11px; padding: 10px 0; }
-
-/* ====== 底部导出栏 ====== */
+/* ====== Export Bar ====== */
 .export-bar {
-  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
-  display: none; align-items: center; gap: 20px;
-  background: #14141c; border: 1px solid var(--accent);
-  border-radius: 16px; padding: 16px 28px;
-  box-shadow: 0 12px 40px rgba(0,0,0,.6), 0 0 24px var(--accent-glow);
-  z-index: 100; backdrop-filter: blur(12px);
+  position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+  display: none; align-items: center; gap: 16px;
+  background: var(--surface-raised); border: 1px solid var(--border-hover);
+  border-radius: var(--radius-lg); padding: 14px 24px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.5);
+  z-index: 100;
 }
 .export-bar.visible { display: flex; }
-.export-bar .count-badge { background: var(--accent); color: #fff; padding: 2px 8px; border-radius: 6px; font-size: 13px; font-weight: 700; }
-.export-bar .label { color: #aaa; font-size: 13px; }
-.export-bar button {
-  padding: 13px 36px;
-  background: linear-gradient(135deg, #ff4444, #d63030);
-  color: #fff; border: none; border-radius: 11px;
-  font-size: 15px; font-weight: 700; cursor: pointer;
-  transition: all .2s; letter-spacing: .5px;
-}
-.export-bar button:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,68,68,.35); }
-.export-bar button:disabled { opacity: .35; transform: none; box-shadow: none; cursor: not-allowed; }
+.export-bar .badge { background: var(--accent); color: #fff; padding: 2px 10px; border-radius: 4px; font-size: 13px; font-weight: 600; }
+.export-bar .label { color: var(--text-secondary); font-size: 13px; }
 
-/* ====== 空白状态 ====== */
-.empty-state { display: none; text-align: center; padding: 64px 0; }
-.empty-state.active { display: block; }
-.empty-state .emoji { font-size: 48px; margin-bottom: 12px; opacity: .3; }
-.empty-state .msg { color: var(--text-dim); font-size: 14px; }
+/* ====== Data Preview Table ====== */
+.data-preview { padding: 0 0 80px; }
+.data-preview h2 { text-align: center; margin-bottom: 16px; }
+.data-preview .section-desc { text-align: center; color: var(--text-tertiary); margin-bottom: 32px; font-size: 15px; }
+.preview-table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.preview-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.preview-table th { text-align: left; padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .5px; }
+.preview-table td { padding: 12px 20px; border-bottom: 1px solid rgba(255,255,255,.03); color: var(--text-secondary); }
+.preview-table tr:last-child td { border-bottom: none; }
+.preview-table td:first-child { color: var(--text); font-weight: 500; }
 
-/* ====== 页脚 ====== */
-.footer { text-align: center; padding: 48px 0 24px; color: var(--text-dim); font-size: 12px; border-top: 1px solid var(--border); margin-top: 48px; }
-.footer .brand { font-weight: 700; color: var(--accent); }
-.footer a { color: var(--text-dim); text-decoration: none; transition: color .15s; }
-.footer a:hover { color: var(--accent); }
-.footer .divider { margin: 0 10px; color: #2a2a2a; }
+/* ====== Workflow ====== */
+.workflow { padding: 0 0 80px; }
+.workflow h2 { text-align: center; margin-bottom: 48px; }
+.workflow-steps { display: flex; justify-content: center; align-items: center; gap: 0; flex-wrap: wrap; }
+.workflow-step { text-align: center; padding: 0 24px; }
+.workflow-step .step-num { width: 40px; height: 40px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-weight: 700; font-size: 15px; color: var(--accent); }
+.workflow-step .step-label { font-size: 14px; color: var(--text-secondary); }
+.workflow-arrow { color: var(--border-hover); font-size: 20px; padding: 0 8px; margin-bottom: 28px; }
 
-/* ====== 响应式 ====== */
-@media (max-width: 640px) {
-  .container { padding: 20px 12px 80px; }
-  .header h1 { font-size: 22px; }
-  .header .logo .icon { font-size: 26px; }
-  .search-wrap input { padding: 14px 100px 14px 44px; font-size: 14px; }
-  .search-wrap button { padding: 0 20px; font-size: 13px; }
-  .card-main { padding: 10px 12px; gap: 10px; }
+/* ====== Footer ====== */
+.footer { border-top: 1px solid var(--border); padding: 40px 0; text-align: center; }
+.footer .text-sm { font-size: 13px; }
+.footer .brand { color: var(--text); font-weight: 600; }
+.footer .divider { margin: 0 10px; color: #2d2d2d; }
+
+/* ====== Responsive ====== */
+@media (max-width: 768px) {
+  h1 { font-size: 32px; letter-spacing: -0.8px; }
+  h2 { font-size: 24px; }
+  .hero { padding: 120px 0 48px; }
+  .section { padding: 48px 0; }
+  .container { padding: 0 20px; }
+  .feature-grid { grid-template-columns: 1fr; }
+  .card-main { padding: 12px 14px; gap: 10px; }
   .card-main .thumb { width: 80px; height: 45px; }
-  .card-main .info .title { font-size: 12px; }
-  .card-main .stats { font-size: 11px; }
-  .export-bar { left: 12px; right: 12px; transform: none; border-radius: 14px; padding: 14px 18px; }
+  .card-main .info .title { font-size: 13px; }
+  .search-row { flex-direction: column; }
+  .workflow-steps { flex-direction: column; }
+  .workflow-arrow { transform: rotate(90deg); margin: 4px 0; }
+  .preview-table { font-size: 12px; }
+  .preview-table th, .preview-table td { padding: 10px 12px; }
 }
 </style>
 </head>
 <body>
 
-<div class="container">
-
-  <!-- ====== Header ====== -->
-  <div class="header">
-    <div class="logo">
-      <span class="icon">🎬</span>
-    </div>
-    <h1>YT <span class="gradient">Comment</span> Exporter</h1>
-    <p class="byline">by <span class="name">Fynn</span> · 搜索 → 预览 → 导出</p>
+<!-- ====== Nav ====== -->
+<nav class="nav">
+  <div class="container">
+    <div class="logo">Comment Research <span>by Fynn</span></div>
+    <a href="#search" class="nav-btn">开始使用</a>
   </div>
+</nav>
 
-  <!-- ====== Search ====== -->
-  <div class="search-wrap">
-    <span class="search-icon">🔍</span>
-    <input type="text" id="keyword" placeholder="输入关键词，如 cfmoto zforce z10 ..." autofocus>
-    <button id="searchBtn" onclick="doSearch()">搜 索</button>
-  </div>
-
-  <!-- ====== Status ====== -->
-  <div class="status-bar">
-    <span class="status-msg" id="statusMsg">输入关键词开始搜索</span>
-    <div class="status-actions" id="statusActions">
-      <button class="btn-text" onclick="toggleAll()">全选 / 取消</button>
+<!-- ====== Hero ====== -->
+<section class="hero">
+  <div class="container">
+    <h1>快速获取 YouTube<br>视频评论数据</h1>
+    <p class="subtitle">搜索视频、抓取评论、一键导出 CSV 数据，用真实用户反馈支持市场调研与运营决策。</p>
+    <div class="cta-group">
+      <a href="#search" class="btn btn-primary">开始搜索</a>
+      <button class="btn btn-secondary" onclick="document.getElementById('keyword').value='cfmoto zforce z10';doSearch();document.getElementById('search').scrollIntoView({behavior:'smooth'});">查看示例</button>
     </div>
   </div>
+</section>
 
-  <!-- ====== Loading ====== -->
-  <div class="loading" id="loading">
-    <div class="dots"><span></span><span></span><span></span></div>
+<!-- ====== Features ====== -->
+<section class="features">
+  <div class="container">
+    <h2>核心能力</h2>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon">🔍</div>
+        <h3>关键词搜索</h3>
+        <p>输入产品名、品牌或话题关键词，快速匹配相关 YouTube 视频。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">💬</div>
+        <h3>评论抓取</h3>
+        <p>获取视频公开评论及回复，单次最高 150 条，覆盖热门讨论。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">⬇️</div>
+        <h3>CSV 导出</h3>
+        <p>一键导出结构化数据，包含用户、内容、点赞数、时间等完整字段。</p>
+      </div>
+    </div>
   </div>
+</section>
 
-  <!-- ====== 空白状态 ====== -->
-  <div class="empty-state" id="emptyState">
-    <div class="emoji">📭</div>
-    <div class="msg">未找到相关视频，试试其他关键词</div>
+<!-- ====== Search ====== -->
+<section class="search-section" id="search">
+  <div class="container">
+    <h2>开始调研</h2>
+    <p class="section-desc">输入关键词，按播放量排序，选择视频后导出评论</p>
+    <div class="search-card">
+      <div class="search-row">
+        <input type="text" id="keyword" placeholder="输入关键词，如 cfmoto zforce z10 ..." autofocus>
+        <button class="btn btn-primary" id="searchBtn" onclick="doSearch()">搜索</button>
+      </div>
+
+      <div class="loading-block" id="loading">
+        <div class="loading-dots"><span></span><span></span><span></span></div>
+      </div>
+
+      <div class="empty-state" id="emptyState">
+        <p class="msg">未找到相关视频，试试其他关键词</p>
+      </div>
+
+      <div class="results-area" id="resultsArea">
+        <div class="results-header">
+          <span class="count" id="resultCount"></span>
+          <button class="select-all" id="selectAllBtn" onclick="toggleAll()" style="display:none">全选 / 取消</button>
+        </div>
+        <div class="video-list" id="videoList"></div>
+      </div>
+    </div>
   </div>
+</section>
 
-  <!-- ====== 视频列表 ====== -->
-  <div class="video-list" id="videoList"></div>
-
-  <!-- ====== Footer ====== -->
-  <div class="footer">
-    <span class="brand">YT Comment Exporter</span>
-    <span class="divider">·</span>
-    by <a href="#">Fynn</a>
-    <span class="divider">·</span>
-    Powered by YouTube Data API v3
+<!-- ====== Data Preview ====== -->
+<section class="data-preview">
+  <div class="container">
+    <h2>导出数据格式</h2>
+    <p class="section-desc">结构化 CSV，可直接导入 Excel、Google Sheets 或数据分析工具</p>
+    <div class="preview-table-wrap">
+      <table class="preview-table">
+        <thead>
+          <tr>
+            <th>用户</th><th>评论内容</th><th>点赞数</th><th>发布时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>@moto_fan</td><td>The new Z10 suspension is a game changer for rock crawling.</td><td>23</td><td>2026-05-15</td></tr>
+          <tr><td>@trail_rider</td><td>Compared to the RZR, the cabin noise is significantly lower.</td><td>17</td><td>2026-05-12</td></tr>
+          <tr><td>@offroad_daily</td><td>Waiting for the 4-seat version. Any ETA on that?</td><td>9</td><td>2026-05-08</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
+</section>
 
-</div>
+<!-- ====== Workflow ====== -->
+<section class="workflow">
+  <div class="container">
+    <h2>使用流程</h2>
+    <div class="workflow-steps">
+      <div class="workflow-step"><div class="step-num">1</div><div class="step-label">搜索视频</div></div>
+      <span class="workflow-arrow">→</span>
+      <div class="workflow-step"><div class="step-num">2</div><div class="step-label">选择目标视频</div></div>
+      <span class="workflow-arrow">→</span>
+      <div class="workflow-step"><div class="step-num">3</div><div class="step-label">预览评论</div></div>
+      <span class="workflow-arrow">→</span>
+      <div class="workflow-step"><div class="step-num">4</div><div class="step-label">导出 CSV</div></div>
+    </div>
+  </div>
+</section>
 
-<!-- ====== 浮动导出栏 ====== -->
+<!-- ====== Footer ====== -->
+<footer class="footer">
+  <div class="container">
+    <p class="text-sm"><span class="brand">Comment Research</span> <span class="divider">·</span> by Fynn <span class="divider">·</span> Powered by YouTube Data API v3</p>
+  </div>
+</footer>
+
+<!-- ====== Export Bar ====== -->
 <div class="export-bar" id="exportBar">
-  <span class="count-badge" id="selectedCount">0</span>
+  <span class="badge" id="selectedCount">0</span>
   <span class="label">个视频已选</span>
-  <button id="exportBtn" onclick="doExport()">⬇ 导出 CSV</button>
+  <button class="btn btn-primary" id="exportBtn" onclick="doExport()">⬇ 导出 CSV</button>
 </div>
 
 <script>
@@ -252,26 +342,21 @@ async function doSearch() {
   if (!kw) return;
 
   setState("loading");
-  setStatus("正在搜索...");
   try {
     const resp = await fetch(`/api/search?q=${encodeURIComponent(kw)}`);
     const data = await resp.json();
-    if (data.error) { setStatus(data.error, "error"); setState("empty"); return; }
+    if (data.error) { setState("empty"); return; }
     videos = data.videos || [];
     previewCache = {};
     renderCards();
     setState(videos.length ? "results" : "empty");
-    setStatus(videos.length ? `找到 ${videos.length} 个视频 · 按播放量降序` : "未找到相关视频", videos.length ? "success" : "error");
-  } catch (e) {
-    setStatus("搜索失败: " + e.message, "error");
-    setState("empty");
-  }
+    document.getElementById("resultCount").textContent = videos.length ? `${videos.length} 个视频 · 按播放量降序` : "";
+  } catch (e) { setState("empty"); }
 }
 
-/* ====== 渲染卡片 ====== */
+/* ====== Render ====== */
 function renderCards() {
-  const container = document.getElementById("videoList");
-  container.innerHTML = videos.map((v, i) => `
+  document.getElementById("videoList").innerHTML = videos.map((v, i) => `
     <div class="video-card" id="card-${i}">
       <div class="card-main" onclick="togglePreview(${i}, event)">
         <div class="cb-wrap" onclick="event.stopPropagation()">
@@ -280,25 +365,23 @@ function renderCards() {
         <img class="thumb" src="${v.thumbnail}" loading="lazy" onerror="this.style.opacity='0'">
         <div class="info">
           <div class="title" title="${esc(v.title)}">${esc(v.title)}</div>
-          <div class="meta-row">
-            <span>${esc(v.channel)}</span>
-          </div>
+          <div class="meta"><span>${esc(v.channel)}</span></div>
         </div>
         <div class="stats">
-          <span class="view-count">▶ ${fmt(v.view_count)}</span>
-          <span class="comment-count ${v.comment_count===0?'zero':''}">💬 ${v.comment_count===0?'暂无':fmt(v.comment_count)}</span>
+          <span class="views">${fmt(v.view_count)} 次播放</span>
+          <span class="cmts ${v.comment_count===0?'zero':''}">${v.comment_count===0?'暂无评论':fmt(v.comment_count)+' 条评论'}</span>
         </div>
-        <span class="expand-icon">▾</span>
+        <span class="expand-arrow">▾</span>
       </div>
       <div class="comment-preview" id="preview-${i}">
-        <div style="color:#555;font-size:13px;padding:16px;">加载中...</div>
+        <div style="color:var(--text-tertiary);font-size:13px;padding:16px 20px;">加载中...</div>
       </div>
     </div>
   `).join("");
   updateUI();
 }
 
-/* ====== 预览 ====== */
+/* ====== Preview ====== */
 async function togglePreview(i, event) {
   if (event.target.tagName === 'INPUT') return;
   const card = document.getElementById("card-" + i);
@@ -314,51 +397,26 @@ async function loadPreview(i) {
   const v = videos[i];
   const div = document.getElementById("preview-" + i);
   try {
-    const resp = await fetch("/api/export", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ video_ids: [v.video_id], preview: true }),
-    });
-    if (!resp.ok) { div.innerHTML = '<div style="color:#555;font-size:13px;padding:16px;">无法加载评论</div>'; return; }
+    const resp = await fetch("/api/export", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ video_ids: [v.video_id], preview: true }) });
+    if (!resp.ok) { div.innerHTML = '<div style="color:var(--text-tertiary);font-size:13px;padding:16px 20px;">无法加载评论</div>'; return; }
     const data = await resp.json();
-    if (!data.comments || data.comments.length === 0) {
-      div.innerHTML = '<div style="color:#555;font-size:13px;padding:16px;">暂无评论</div>'; return;
-    }
+    if (!data.comments || data.comments.length === 0) { div.innerHTML = '<div style="color:var(--text-tertiary);font-size:13px;padding:16px 20px;">暂无评论</div>'; return; }
     previewCache[i] = data.comments;
     const top5 = data.comments.slice(0, 5);
-    div.innerHTML = `
-      <div class="preview-header">热门评论预览</div>
-      ${top5.map(c => `
-        <div class="c-item">
-          <div class="c-avatar">${c.author[0].toUpperCase()}</div>
-          <div class="c-body">
-            <div class="c-author">${esc(c.author)}</div>
-            <div class="c-text">${esc(c.text.replace(/<br\s*\/?>/g,' '))}</div>
-          </div>
-          <span class="c-likes">👍 ${c.likes}</span>
-        </div>
-      `).join('')}
-      ${data.comments.length > 5 ? `<div class="more-hint">... 还有 ${data.comments.length - 5} 条评论</div>` : ''}
-    `;
-  } catch (e) {
-    div.innerHTML = '<div style="color:#555;font-size:13px;padding:16px;">加载失败</div>';
-  }
+    div.innerHTML = `<div class="preview-header">评论预览 (${data.comments.length} 条)</div>` +
+      top5.map(c => `<div class="c-item"><div class="c-avatar">${c.author[0].toUpperCase()}</div><div class="c-body"><div class="c-author">${esc(c.author)}</div><div class="c-text">${esc(c.text.replace(/<br\s*\/?>/g,' '))}</div></div><span class="c-likes">${c.likes}</span></div>`).join('') +
+      (data.comments.length > 5 ? `<div class="more-hint">... 还有 ${data.comments.length - 5} 条</div>` : '');
+  } catch (e) { div.innerHTML = '<div style="color:var(--text-tertiary);font-size:13px;padding:16px 20px;">加载失败</div>'; }
 }
 
-/* ====== 选择 ====== */
-function onCheck(i, checked) {
-  document.getElementById("card-" + i).classList.toggle("selected", checked);
-  updateUI();
-}
+/* ====== Selection ====== */
+function onCheck(i, checked) { document.getElementById("card-" + i).classList.toggle("selected", checked); updateUI(); }
 
 function toggleAll() {
   const cbs = document.querySelectorAll("#videoList input[type='checkbox']:not(:disabled)");
   const allChecked = [...cbs].every(cb => cb.checked);
   cbs.forEach(cb => { cb.checked = !allChecked; });
-  document.querySelectorAll(".video-card").forEach(c => {
-    const cb = c.querySelector('input[type="checkbox"]');
-    c.classList.toggle("selected", cb && cb.checked);
-  });
+  document.querySelectorAll(".video-card").forEach(c => { const cb = c.querySelector('input[type="checkbox"]'); c.classList.toggle("selected", cb && cb.checked); });
   updateUI();
 }
 
@@ -367,63 +425,39 @@ function updateUI() {
   const count = checked.length;
   document.getElementById("selectedCount").textContent = count;
   document.getElementById("exportBar").classList.toggle("visible", count > 0);
-  document.getElementById("statusActions").classList.toggle("visible", videos.length > 0);
+  document.getElementById("selectAllBtn").style.display = videos.length ? "inline" : "none";
 }
 
-/* ====== 导出 ====== */
+/* ====== Export ====== */
 async function doExport() {
   const checked = document.querySelectorAll("#videoList input[type='checkbox']:checked");
   const ids = [...checked].map(cb => videos[cb.value].video_id);
   if (!ids.length) return;
-
   const btn = document.getElementById("exportBtn");
-  btn.disabled = true;
-  btn.textContent = "导出中...";
-  setStatus("正在获取评论...");
-
+  btn.disabled = true; btn.textContent = "导出中...";
   try {
-    const resp = await fetch("/api/export", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ video_ids: ids }),
-    });
-    if (!resp.ok) { const err = await resp.json(); setStatus(err.error || "导出失败", "error"); return; }
+    const resp = await fetch("/api/export", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ video_ids: ids }) });
+    if (!resp.ok) return;
     const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
+    a.href = URL.createObjectURL(blob);
     a.download = "youtube_comments_" + new Date().toISOString().slice(0,10) + ".csv";
-    a.click();
-    URL.revokeObjectURL(url);
-    setStatus("✅ 导出完成", "success");
-  } catch (e) {
-    setStatus("导出失败: " + e.message, "error");
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "⬇ 导出 CSV";
-  }
+    a.click(); URL.revokeObjectURL(a.href);
+  } catch (e) {} finally { btn.disabled = false; btn.textContent = "⬇ 导出 CSV"; }
 }
 
-/* ====== 状态 ====== */
+/* ====== State ====== */
 function setState(s) {
   document.getElementById("loading").classList.toggle("active", s === "loading");
-  document.getElementById("videoList").classList.toggle("active", s === "results");
+  document.getElementById("resultsArea").classList.toggle("active", s === "results");
   document.getElementById("emptyState").classList.toggle("active", s === "empty");
   document.getElementById("exportBar").classList.toggle("visible", false);
-  document.getElementById("statusActions").classList.toggle("visible", false);
+  document.getElementById("selectAllBtn").style.display = "none";
 }
 
-function setStatus(msg, cls) {
-  const el = document.getElementById("statusMsg");
-  el.textContent = msg;
-  el.className = "status-msg " + (cls || "");
-}
-
-/* ====== 工具 ====== */
+/* ====== Utils ====== */
 function fmt(n) { return n >= 10000 ? (n/10000).toFixed(1) + "万" : n.toLocaleString(); }
 function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
-
-/* ====== 快捷键 ====== */
 document.getElementById("keyword").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
 </script>
 
