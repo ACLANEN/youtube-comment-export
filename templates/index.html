@@ -3,143 +3,256 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube 评论搜索导出</title>
+<title>YT Comment Exporter — by Fynn</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🎬</text></svg>">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%); color: #e0e0e0; min-height: 100vh; }
-.container { max-width: 960px; margin: 0 auto; padding: 32px 20px; }
 
-/* 头部 */
-.header { text-align: center; margin-bottom: 28px; }
-.header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 6px; }
-.header h1 span { background: linear-gradient(135deg, #ff4444, #ff6b6b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.header .sub { color: #666; font-size: 13px; }
+:root {
+  --bg: #08080f;
+  --surface: #101018;
+  --surface-hover: #161622;
+  --border: #1e1e2e;
+  --border-active: #ff4444;
+  --text: #e2e2e8;
+  --text-dim: #666;
+  --text-mid: #999;
+  --accent: #ff4444;
+  --accent-glow: rgba(255,68,68,.15);
+  --radius: 14px;
+}
 
-/* 搜索框 */
-.search-wrap { position: relative; margin-bottom: 28px; }
-.search-wrap input { width: 100%; padding: 16px 56px 16px 20px; border: 2px solid #1e1e1e; border-radius: 14px; font-size: 16px; background: #111; color: #fff; outline: none; transition: all .25s; }
-.search-wrap input:focus { border-color: #ff4444; box-shadow: 0 0 0 4px rgba(255,68,68,.12); }
-.search-wrap input::placeholder { color: #444; }
-.search-wrap button { position: absolute; right: 8px; top: 8px; bottom: 8px; padding: 0 24px; background: linear-gradient(135deg, #ff4444, #e63939); color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all .2s; }
-.search-wrap button:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(255,68,68,.3); }
-.search-wrap button:disabled { opacity: .4; transform: none; box-shadow: none; cursor: not-allowed; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+}
 
-/* 状态 */
-.status-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; min-height: 28px; }
-.status-bar .msg { font-size: 13px; color: #666; }
-.status-bar .msg.success { color: #4caf50; }
-.status-bar .msg.error { color: #ff4444; }
-.status-bar .actions { display: none; align-items: center; gap: 12px; }
-.status-bar .actions.visible { display: flex; }
-.status-bar .select-all { color: #ff4444; font-size: 13px; cursor: pointer; user-select: none; }
-.status-bar .select-all:hover { text-decoration: underline; }
+/* 背景纹理 */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse 60% 50% at 50% -10%, rgba(255,68,68,.04), transparent),
+              radial-gradient(ellipse 40% 40% at 80% 80%, rgba(100,100,255,.03), transparent);
+  pointer-events: none; z-index: 0;
+}
 
-/* spinner */
-.spinner { display: none; text-align: center; padding: 50px 0; }
-.spinner.active { display: block; }
-.spinner .dot-pulse { display: inline-flex; gap: 6px; }
-.spinner .dot-pulse span { width: 10px; height: 10px; background: #ff4444; border-radius: 50%; animation: bounce 1.2s infinite ease-in-out; }
-.spinner .dot-pulse span:nth-child(1) { animation-delay: 0s; }
-.spinner .dot-pulse span:nth-child(2) { animation-delay: .15s; }
-.spinner .dot-pulse span:nth-child(3) { animation-delay: .3s; }
-@keyframes bounce { 0%, 80%, 100% { transform: scale(0); opacity: .3; } 40% { transform: scale(1); opacity: 1; } }
+.container { max-width: 980px; margin: 0 auto; padding: 40px 24px 100px; position: relative; z-index: 1; }
 
-/* 视频列表 */
-.video-list { display: none; flex-direction: column; gap: 6px; }
+/* ====== 头部 ====== */
+.header { text-align: center; margin-bottom: 32px; }
+.header .logo { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.header .logo .icon { font-size: 32px; filter: drop-shadow(0 2px 8px rgba(255,68,68,.3)); }
+.header h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.8px; }
+.header h1 .gradient { background: linear-gradient(135deg, #ff4444 0%, #ff6b6b 40%, #ff8e8e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.header .byline { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+.header .byline .name { color: var(--accent); font-weight: 600; }
+
+/* ====== 搜索 ====== */
+.search-wrap { position: relative; margin-bottom: 24px; }
+.search-wrap .search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); font-size: 18px; color: var(--text-dim); pointer-events: none; z-index: 1; }
+.search-wrap input {
+  width: 100%; padding: 17px 120px 17px 50px;
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  font-size: 16px; background: var(--surface); color: var(--text);
+  outline: none; transition: all .25s;
+}
+.search-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 5px var(--accent-glow); }
+.search-wrap input::placeholder { color: #333; }
+.search-wrap button {
+  position: absolute; right: 6px; top: 6px; bottom: 6px;
+  padding: 0 28px;
+  background: linear-gradient(135deg, #ff4444, #d63030);
+  color: #fff; border: none; border-radius: 10px;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: all .2s; letter-spacing: 0.5px;
+}
+.search-wrap button:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,68,68,.35); }
+.search-wrap button:active { transform: translateY(0); }
+.search-wrap button:disabled { opacity: .35; transform: none; box-shadow: none; cursor: not-allowed; }
+
+/* ====== 状态栏 ====== */
+.status-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; min-height: 26px; }
+.status-msg { font-size: 13px; color: var(--text-dim); transition: color .3s; }
+.status-msg.success { color: #4caf50; }
+.status-msg.error { color: var(--accent); }
+.status-actions { display: none; align-items: center; gap: 16px; }
+.status-actions.visible { display: flex; }
+.btn-text { color: var(--accent); font-size: 13px; cursor: pointer; font-weight: 500; background: none; border: none; transition: opacity .15s; }
+.btn-text:hover { opacity: .8; }
+
+/* ====== Loading ====== */
+.loading { display: none; text-align: center; padding: 64px 0; }
+.loading.active { display: block; }
+.loading .dots { display: inline-flex; gap: 6px; }
+.loading .dots span { width: 10px; height: 10px; background: var(--accent); border-radius: 50%; animation: dotBounce 1.4s infinite ease-in-out; }
+.loading .dots span:nth-child(1) { animation-delay: 0s; }
+.loading .dots span:nth-child(2) { animation-delay: .16s; }
+.loading .dots span:nth-child(3) { animation-delay: .32s; }
+@keyframes dotBounce { 0%, 80%, 100% { transform: scale(.3); opacity: .2; } 40% { transform: scale(1); opacity: 1; } }
+
+/* ====== 视频卡片 ====== */
+.video-list { display: none; flex-direction: column; gap: 8px; }
 .video-list.active { display: flex; }
 
-.video-card { background: #12121a; border: 1px solid #1a1a28; border-radius: 12px; overflow: hidden; transition: all .2s; }
-.video-card:hover { border-color: #2a2a3a; background: #141420; }
-.video-card.selected { border-color: #ff4444; background: #1a1216; }
+.video-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  transition: all .25s ease;
+}
+.video-card:hover { border-color: #2a2a40; background: var(--surface-hover); }
+.video-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 16px var(--accent-glow); }
 
-.video-card-main { display: flex; align-items: center; padding: 10px 14px; gap: 12px; cursor: pointer; }
-.video-card .cb-wrap { flex-shrink: 0; }
-.video-card .cb-wrap input { width: 17px; height: 17px; accent-color: #ff4444; cursor: pointer; }
-.video-card .thumb { flex-shrink: 0; width: 100px; height: 56px; border-radius: 6px; object-fit: cover; background: #1a1a2e; }
-.video-card .info { flex: 1; min-width: 0; }
-.video-card .info .title { font-size: 14px; font-weight: 500; color: #e8e8e8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
-.video-card .info .meta { font-size: 11px; color: #666; display: flex; gap: 10px; }
-.video-card .info .meta .channel { color: #888; }
-.video-card .stats { flex-shrink: 0; display: flex; gap: 14px; font-size: 12px; color: #777; text-align: right; }
-.video-card .stats .views { font-weight: 500; color: #aaa; }
-.video-card .stats .cmts { font-weight: 500; }
-.video-card .stats .cmts.zero { color: #444; }
-.video-card .expand-arrow { flex-shrink: 0; color: #444; font-size: 14px; transition: transform .2s; width: 20px; text-align: center; }
-.video-card.expanded .expand-arrow { transform: rotate(180deg); color: #ff4444; }
+.card-main { display: flex; align-items: center; padding: 12px 16px; gap: 14px; cursor: pointer; }
+.card-main .cb-wrap { flex-shrink: 0; }
+.card-main .cb-wrap input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; border-radius: 4px; }
+.card-main .thumb { flex-shrink: 0; width: 120px; height: 68px; border-radius: 8px; object-fit: cover; background: #1a1a2e; }
+.card-main .info { flex: 1; min-width: 0; }
+.card-main .info .title { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+.card-main .info .meta-row { font-size: 12px; color: var(--text-mid); display: flex; gap: 14px; align-items: center; }
+.card-main .stats { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 12px; }
+.card-main .stats .view-count { font-weight: 600; color: #aaa; }
+.card-main .stats .comment-count { color: var(--text-mid); }
+.card-main .stats .comment-count.zero { color: #3a3a3a; }
+.card-main .expand-icon { flex-shrink: 0; color: #3a3a3a; font-size: 16px; width: 22px; text-align: center; transition: all .25s; }
+.video-card.expanded .expand-icon { transform: rotate(180deg); color: var(--accent); }
 
 /* 评论预览 */
-.comment-preview { display: none; border-top: 1px solid #1a1a28; padding: 0; max-height: 0; overflow: hidden; transition: max-height .35s ease, padding .35s ease; }
-.video-card.expanded .comment-preview { display: block; max-height: 500px; overflow-y: auto; padding: 6px 14px 12px; }
-.comment-preview .comment-row { padding: 8px 0; border-bottom: 1px solid #111; display: flex; gap: 10px; font-size: 12px; }
-.comment-preview .comment-row:last-child { border-bottom: none; }
-.comment-preview .comment-row .c-avatar { width: 24px; height: 24px; border-radius: 50%; background: #2a2a3a; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #666; }
-.comment-preview .comment-row .c-body { flex: 1; min-width: 0; }
-.comment-preview .comment-row .c-author { font-weight: 600; color: #ccc; margin-bottom: 2px; }
-.comment-preview .comment-row .c-text { color: #999; line-height: 1.5; word-break: break-word; }
-.comment-preview .comment-row .c-likes { color: #555; font-size: 11px; flex-shrink: 0; }
-.comment-preview .more-hint { text-align: center; color: #444; font-size: 11px; padding: 6px 0; }
+.comment-preview { display: none; border-top: 1px solid var(--border); overflow: hidden; }
+.video-card.expanded .comment-preview { display: block; max-height: 520px; overflow-y: auto; }
+.comment-preview .preview-header { padding: 12px 16px 4px; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+.comment-preview .c-item { display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,.02); font-size: 13px; }
+.comment-preview .c-item:last-child { border-bottom: none; }
+.comment-preview .c-avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #2a2a3a, #1a1a2a); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--text-dim); }
+.comment-preview .c-body { flex: 1; min-width: 0; }
+.comment-preview .c-author { font-weight: 600; color: #ccc; margin-bottom: 3px; font-size: 12px; }
+.comment-preview .c-text { color: var(--text-mid); line-height: 1.55; word-break: break-word; }
+.comment-preview .c-likes { color: #4a4a5a; font-size: 11px; flex-shrink: 0; margin-left: 8px; }
+.comment-preview .more-hint { text-align: center; color: #3a3a3a; font-size: 11px; padding: 10px 0; }
 
-/* 导出按钮 */
-.export-bar { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); display: none; align-items: center; gap: 16px; background: #1a1a2e; border: 1px solid #ff4444; border-radius: 14px; padding: 14px 24px; box-shadow: 0 8px 32px rgba(0,0,0,.5); z-index: 100; }
+/* ====== 底部导出栏 ====== */
+.export-bar {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  display: none; align-items: center; gap: 20px;
+  background: #14141c; border: 1px solid var(--accent);
+  border-radius: 16px; padding: 16px 28px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.6), 0 0 24px var(--accent-glow);
+  z-index: 100; backdrop-filter: blur(12px);
+}
 .export-bar.visible { display: flex; }
-.export-bar .count { color: #ff4444; font-weight: 700; }
-.export-bar button { padding: 12px 36px; background: linear-gradient(135deg, #ff4444, #e63939); color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all .2s; }
-.export-bar button:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(255,68,68,.3); }
-.export-bar button:disabled { opacity: .4; transform: none; box-shadow: none; cursor: not-allowed; }
+.export-bar .count-badge { background: var(--accent); color: #fff; padding: 2px 8px; border-radius: 6px; font-size: 13px; font-weight: 700; }
+.export-bar .label { color: #aaa; font-size: 13px; }
+.export-bar button {
+  padding: 13px 36px;
+  background: linear-gradient(135deg, #ff4444, #d63030);
+  color: #fff; border: none; border-radius: 11px;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: all .2s; letter-spacing: .5px;
+}
+.export-bar button:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,68,68,.35); }
+.export-bar button:disabled { opacity: .35; transform: none; box-shadow: none; cursor: not-allowed; }
 
-/* 响应式 */
+/* ====== 空白状态 ====== */
+.empty-state { display: none; text-align: center; padding: 64px 0; }
+.empty-state.active { display: block; }
+.empty-state .emoji { font-size: 48px; margin-bottom: 12px; opacity: .3; }
+.empty-state .msg { color: var(--text-dim); font-size: 14px; }
+
+/* ====== 页脚 ====== */
+.footer { text-align: center; padding: 48px 0 24px; color: var(--text-dim); font-size: 12px; border-top: 1px solid var(--border); margin-top: 48px; }
+.footer .brand { font-weight: 700; color: var(--accent); }
+.footer a { color: var(--text-dim); text-decoration: none; transition: color .15s; }
+.footer a:hover { color: var(--accent); }
+.footer .divider { margin: 0 10px; color: #2a2a2a; }
+
+/* ====== 响应式 ====== */
 @media (max-width: 640px) {
-  .container { padding: 16px 12px; }
+  .container { padding: 20px 12px 80px; }
   .header h1 { font-size: 22px; }
-  .video-card .thumb { width: 70px; height: 40px; }
-  .video-card .info .title { font-size: 12px; }
-  .video-card .stats { font-size: 10px; gap: 8px; }
+  .header .logo .icon { font-size: 26px; }
+  .search-wrap input { padding: 14px 100px 14px 44px; font-size: 14px; }
+  .search-wrap button { padding: 0 20px; font-size: 13px; }
+  .card-main { padding: 10px 12px; gap: 10px; }
+  .card-main .thumb { width: 80px; height: 45px; }
+  .card-main .info .title { font-size: 12px; }
+  .card-main .stats { font-size: 11px; }
+  .export-bar { left: 12px; right: 12px; transform: none; border-radius: 14px; padding: 14px 18px; }
 }
 </style>
 </head>
 <body>
+
 <div class="container">
+
+  <!-- ====== Header ====== -->
   <div class="header">
-    <h1>🎬 YouTube <span>评论抓取</span></h1>
-    <p class="sub">搜索视频 → 按播放量排序 → 预览评论 → 一键导出 CSV</p>
+    <div class="logo">
+      <span class="icon">🎬</span>
+    </div>
+    <h1>YT <span class="gradient">Comment</span> Exporter</h1>
+    <p class="byline">by <span class="name">Fynn</span> · 搜索 → 预览 → 导出</p>
   </div>
 
+  <!-- ====== Search ====== -->
   <div class="search-wrap">
-    <input type="text" id="keyword" placeholder="输入关键词，如 cfmoto zforce z10" autofocus>
-    <button id="searchBtn" onclick="doSearch()">搜索</button>
+    <span class="search-icon">🔍</span>
+    <input type="text" id="keyword" placeholder="输入关键词，如 cfmoto zforce z10 ..." autofocus>
+    <button id="searchBtn" onclick="doSearch()">搜 索</button>
   </div>
 
+  <!-- ====== Status ====== -->
   <div class="status-bar">
-    <span class="msg" id="statusMsg">就绪</span>
-    <div class="actions" id="actionsBar">
-      <span class="select-all" onclick="toggleAll()">全选</span>
-      <span style="color:#444">|</span>
-      <button class="select-all" onclick="doExport()" style="font-weight:600;border:none;background:none;font-size:13px;">⬇ 导出 CSV</button>
+    <span class="status-msg" id="statusMsg">输入关键词开始搜索</span>
+    <div class="status-actions" id="statusActions">
+      <button class="btn-text" onclick="toggleAll()">全选 / 取消</button>
     </div>
   </div>
 
-  <div class="spinner" id="spinner">
-    <div class="dot-pulse"><span></span><span></span><span></span></div>
+  <!-- ====== Loading ====== -->
+  <div class="loading" id="loading">
+    <div class="dots"><span></span><span></span><span></span></div>
   </div>
 
+  <!-- ====== 空白状态 ====== -->
+  <div class="empty-state" id="emptyState">
+    <div class="emoji">📭</div>
+    <div class="msg">未找到相关视频，试试其他关键词</div>
+  </div>
+
+  <!-- ====== 视频列表 ====== -->
   <div class="video-list" id="videoList"></div>
+
+  <!-- ====== Footer ====== -->
+  <div class="footer">
+    <span class="brand">YT Comment Exporter</span>
+    <span class="divider">·</span>
+    by <a href="#">Fynn</a>
+    <span class="divider">·</span>
+    Powered by YouTube Data API v3
+  </div>
+
 </div>
 
+<!-- ====== 浮动导出栏 ====== -->
 <div class="export-bar" id="exportBar">
-  <span>已选 <span class="count" id="selectedCount">0</span> 个视频</span>
-  <button id="exportBtn" onclick="doExport()">导出 CSV</button>
+  <span class="count-badge" id="selectedCount">0</span>
+  <span class="label">个视频已选</span>
+  <button id="exportBtn" onclick="doExport()">⬇ 导出 CSV</button>
 </div>
 
 <script>
 let videos = [];
 let previewCache = {};
 
+/* ====== Search ====== */
 async function doSearch() {
   const kw = document.getElementById("keyword").value.trim();
   if (!kw) return;
 
   setState("loading");
-  setStatus("搜索中...");
+  setStatus("正在搜索...");
   try {
     const resp = await fetch(`/api/search?q=${encodeURIComponent(kw)}`);
     const data = await resp.json();
@@ -148,103 +261,100 @@ async function doSearch() {
     previewCache = {};
     renderCards();
     setState(videos.length ? "results" : "empty");
-    setStatus(videos.length ? `找到 ${videos.length} 个视频，按播放量降序` : "未找到相关视频", videos.length ? "success" : "error");
+    setStatus(videos.length ? `找到 ${videos.length} 个视频 · 按播放量降序` : "未找到相关视频", videos.length ? "success" : "error");
   } catch (e) {
     setStatus("搜索失败: " + e.message, "error");
     setState("empty");
   }
 }
 
+/* ====== 渲染卡片 ====== */
 function renderCards() {
   const container = document.getElementById("videoList");
   container.innerHTML = videos.map((v, i) => `
     <div class="video-card" id="card-${i}">
-      <div class="video-card-main" onclick="togglePreview(${i}, event)">
+      <div class="card-main" onclick="togglePreview(${i}, event)">
         <div class="cb-wrap" onclick="event.stopPropagation()">
           <input type="checkbox" ${v.comment_count===0?'disabled':''} onchange="onCheck(${i}, this.checked)">
         </div>
-        <img class="thumb" src="${v.thumbnail}" loading="lazy" onerror="this.style.display='none'">
+        <img class="thumb" src="${v.thumbnail}" loading="lazy" onerror="this.style.opacity='0'">
         <div class="info">
           <div class="title" title="${esc(v.title)}">${esc(v.title)}</div>
-          <div class="meta">
-            <span class="channel">${esc(v.channel)}</span>
+          <div class="meta-row">
+            <span>${esc(v.channel)}</span>
           </div>
         </div>
         <div class="stats">
-          <span class="views">▶ ${fmt(v.view_count)}</span>
-          <span class="cmts ${v.comment_count===0?'zero':''}">💬 ${v.comment_count===0?'无':fmt(v.comment_count)}</span>
+          <span class="view-count">▶ ${fmt(v.view_count)}</span>
+          <span class="comment-count ${v.comment_count===0?'zero':''}">💬 ${v.comment_count===0?'暂无':fmt(v.comment_count)}</span>
         </div>
-        <div class="expand-arrow">▾</div>
+        <span class="expand-icon">▾</span>
       </div>
       <div class="comment-preview" id="preview-${i}">
-        <div style="color:#555;font-size:12px;padding:8px 0;">加载中...</div>
+        <div style="color:#555;font-size:13px;padding:16px;">加载中...</div>
       </div>
     </div>
   `).join("");
   updateUI();
 }
 
+/* ====== 预览 ====== */
 async function togglePreview(i, event) {
   if (event.target.tagName === 'INPUT') return;
   const card = document.getElementById("card-" + i);
   const wasExpanded = card.classList.contains("expanded");
-
-  // collapse all
   document.querySelectorAll(".video-card.expanded").forEach(c => c.classList.remove("expanded"));
-
   if (!wasExpanded) {
     card.classList.add("expanded");
-    if (!previewCache[i]) {
-      await loadPreview(i);
-    }
+    if (!previewCache[i]) await loadPreview(i);
   }
 }
 
 async function loadPreview(i) {
   const v = videos[i];
-  const previewDiv = document.getElementById("preview-" + i);
+  const div = document.getElementById("preview-" + i);
   try {
     const resp = await fetch("/api/export", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ video_ids: [v.video_id], preview: true }),
     });
-    if (!resp.ok) {
-      previewDiv.innerHTML = '<div style="color:#555;font-size:12px;padding:8px 0;">无法加载评论</div>';
-      return;
-    }
+    if (!resp.ok) { div.innerHTML = '<div style="color:#555;font-size:13px;padding:16px;">无法加载评论</div>'; return; }
     const data = await resp.json();
     if (!data.comments || data.comments.length === 0) {
-      previewDiv.innerHTML = '<div style="color:#555;font-size:12px;padding:8px 0;">暂无评论</div>';
-      return;
+      div.innerHTML = '<div style="color:#555;font-size:13px;padding:16px;">暂无评论</div>'; return;
     }
     previewCache[i] = data.comments;
     const top5 = data.comments.slice(0, 5);
-    previewDiv.innerHTML = top5.map(c => `
-      <div class="comment-row">
-        <div class="c-avatar">${c.author[0].toUpperCase()}</div>
-        <div class="c-body">
-          <div class="c-author">${esc(c.author)}</div>
-          <div class="c-text">${esc(c.text.replace(/<br>/g,' '))}</div>
+    div.innerHTML = `
+      <div class="preview-header">热门评论预览</div>
+      ${top5.map(c => `
+        <div class="c-item">
+          <div class="c-avatar">${c.author[0].toUpperCase()}</div>
+          <div class="c-body">
+            <div class="c-author">${esc(c.author)}</div>
+            <div class="c-text">${esc(c.text.replace(/<br\s*\/?>/g,' '))}</div>
+          </div>
+          <span class="c-likes">👍 ${c.likes}</span>
         </div>
-        <div class="c-likes">👍 ${c.likes}</div>
-      </div>
-    `).join('') + (data.comments.length > 5 ? `<div class="more-hint">... 还有 ${data.comments.length - 5} 条评论</div>` : '');
+      `).join('')}
+      ${data.comments.length > 5 ? `<div class="more-hint">... 还有 ${data.comments.length - 5} 条评论</div>` : ''}
+    `;
   } catch (e) {
-    previewDiv.innerHTML = '<div style="color:#555;font-size:12px;padding:8px 0;">加载失败</div>';
+    div.innerHTML = '<div style="color:#555;font-size:13px;padding:16px;">加载失败</div>';
   }
 }
 
+/* ====== 选择 ====== */
 function onCheck(i, checked) {
-  const card = document.getElementById("card-" + i);
-  card.classList.toggle("selected", checked);
+  document.getElementById("card-" + i).classList.toggle("selected", checked);
   updateUI();
 }
 
 function toggleAll() {
   const cbs = document.querySelectorAll("#videoList input[type='checkbox']:not(:disabled)");
   const allChecked = [...cbs].every(cb => cb.checked);
-  cbs.forEach(cb => { cb.checked = !allChecked; cb.dispatchEvent(new Event("change")); });
+  cbs.forEach(cb => { cb.checked = !allChecked; });
   document.querySelectorAll(".video-card").forEach(c => {
     const cb = c.querySelector('input[type="checkbox"]');
     c.classList.toggle("selected", cb && cb.checked);
@@ -253,13 +363,14 @@ function toggleAll() {
 }
 
 function updateUI() {
-  const cbs = document.querySelectorAll("#videoList input[type='checkbox']:checked");
-  const count = cbs.length;
+  const checked = document.querySelectorAll("#videoList input[type='checkbox']:checked");
+  const count = checked.length;
   document.getElementById("selectedCount").textContent = count;
   document.getElementById("exportBar").classList.toggle("visible", count > 0);
-  document.getElementById("actionsBar").classList.toggle("visible", videos.length > 0);
+  document.getElementById("statusActions").classList.toggle("visible", videos.length > 0);
 }
 
+/* ====== 导出 ====== */
 async function doExport() {
   const checked = document.querySelectorAll("#videoList input[type='checkbox']:checked");
   const ids = [...checked].map(cb => videos[cb.value].video_id);
@@ -276,44 +387,45 @@ async function doExport() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ video_ids: ids }),
     });
-    if (!resp.ok) {
-      const err = await resp.json();
-      setStatus(err.error || "导出失败", "error");
-      return;
-    }
+    if (!resp.ok) { const err = await resp.json(); setStatus(err.error || "导出失败", "error"); return; }
     const blob = await resp.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `youtube_comments_${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = "youtube_comments_" + new Date().toISOString().slice(0,10) + ".csv";
     a.click();
     URL.revokeObjectURL(url);
-    setStatus(`✅ 导出完成`, "success");
+    setStatus("✅ 导出完成", "success");
   } catch (e) {
     setStatus("导出失败: " + e.message, "error");
   } finally {
     btn.disabled = false;
-    btn.textContent = "导出 CSV";
+    btn.textContent = "⬇ 导出 CSV";
   }
 }
 
-function setState(state) {
-  document.getElementById("spinner").classList.toggle("active", state === "loading");
-  document.getElementById("videoList").classList.toggle("active", state === "results");
+/* ====== 状态 ====== */
+function setState(s) {
+  document.getElementById("loading").classList.toggle("active", s === "loading");
+  document.getElementById("videoList").classList.toggle("active", s === "results");
+  document.getElementById("emptyState").classList.toggle("active", s === "empty");
   document.getElementById("exportBar").classList.toggle("visible", false);
-  document.getElementById("actionsBar").classList.toggle("visible", false);
+  document.getElementById("statusActions").classList.toggle("visible", false);
 }
 
 function setStatus(msg, cls) {
   const el = document.getElementById("statusMsg");
   el.textContent = msg;
-  el.className = "msg " + (cls || "");
+  el.className = "status-msg " + (cls || "");
 }
 
+/* ====== 工具 ====== */
 function fmt(n) { return n >= 10000 ? (n/10000).toFixed(1) + "万" : n.toLocaleString(); }
 function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
 
+/* ====== 快捷键 ====== */
 document.getElementById("keyword").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
 </script>
+
 </body>
 </html>
