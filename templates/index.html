@@ -305,7 +305,16 @@ p, li { font-size: 16px; color: var(--text-secondary); }
         </div>
 
         <div class="filter-row">
-          <label>最低点赞数</label>
+          <label>排序</label>
+          <select id="sortBy" onchange="applySort()">
+            <option value="views_desc">播放量 ↓</option>
+            <option value="views_asc">播放量 ↑</option>
+            <option value="comments_desc">评论数 ↓</option>
+            <option value="comments_asc">评论数 ↑</option>
+            <option value="date_desc">最新发布</option>
+            <option value="date_asc">最早发布</option>
+          </select>
+          <label style="margin-left:12px">最低点赞</label>
           <select id="minLikes" onchange="updateUI()">
             <option value="0">全部 (0)</option>
             <option value="5">≥ 5</option>
@@ -405,6 +414,7 @@ async function doSearch() {
     videos = data.videos || [];
     nextPageToken = data.nextPageToken || "";
     currentKeyword = kw;
+    document.getElementById("sortBy").value = "views_desc";
     previewCache = {};
     renderCards();
     setState(videos.length ? "results" : "empty");
@@ -565,6 +575,17 @@ function setState(s) {
   document.getElementById("loadMoreWrap").classList.toggle("active", s === "results" && !!nextPageToken);
 }
 
+function applySort() {
+  var sort = document.getElementById("sortBy").value;
+  if (sort === "views_desc") videos.sort(function(a,b) { return b.view_count - a.view_count; });
+  else if (sort === "views_asc") videos.sort(function(a,b) { return a.view_count - b.view_count; });
+  else if (sort === "comments_desc") videos.sort(function(a,b) { return b.comment_count - a.comment_count; });
+  else if (sort === "comments_asc") videos.sort(function(a,b) { return a.comment_count - b.comment_count; });
+  else if (sort === "date_desc") videos.sort(function(a,b) { return new Date(b.published_at) - new Date(a.published_at); });
+  else if (sort === "date_asc") videos.sort(function(a,b) { return new Date(a.published_at) - new Date(b.published_at); });
+  renderCards();
+}
+
 async function loadMore() {
   if (!nextPageToken || !currentKeyword) return;
   const btn = document.getElementById("loadMoreBtn");
@@ -576,7 +597,14 @@ async function loadMore() {
     const newVideos = data.videos || [];
     nextPageToken = data.nextPageToken || "";
     videos = videos.concat(newVideos);
-    renderCards(true);
+    var sort = document.getElementById("sortBy").value;
+    if (sort === "views_desc") videos.sort(function(a,b) { return b.view_count - a.view_count; });
+    else if (sort === "views_asc") videos.sort(function(a,b) { return a.view_count - b.view_count; });
+    else if (sort === "comments_desc") videos.sort(function(a,b) { return b.comment_count - a.comment_count; });
+    else if (sort === "comments_asc") videos.sort(function(a,b) { return a.comment_count - b.comment_count; });
+    else if (sort === "date_desc") videos.sort(function(a,b) { return new Date(b.published_at) - new Date(a.published_at); });
+    else if (sort === "date_asc") videos.sort(function(a,b) { return new Date(a.published_at) - new Date(b.published_at); });
+    renderCards();
     document.getElementById("resultCount").textContent = `${videos.length} 个视频 · 按播放量降序`;
   } catch (e) {} finally {
     btn.disabled = false; btn.textContent = "加载更多";
