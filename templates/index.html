@@ -424,7 +424,7 @@ function renderCards(append = false) {
     <div class="video-card" id="card-${i}">
       <div class="card-main" onclick="togglePreview(${i}, event)">
         <div class="cb-wrap" onclick="event.stopPropagation()">
-          <input type="checkbox" ${v.comment_count===0?'disabled':''} onchange="onCheck(${i}, this.checked)">
+          <input type="checkbox" value="${idx}" ${v.comment_count===0?'disabled':''} onchange="onCheck(${i}, this.checked)">
         </div>
         <img class="thumb" src="${v.thumbnail}" loading="lazy" onerror="this.style.opacity='0'">
         <div class="info">
