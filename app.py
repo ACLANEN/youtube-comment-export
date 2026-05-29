@@ -4,7 +4,6 @@ YouTube 评论搜索 — 纯云端 Web 版
 import os
 import csv
 import io
-import traceback
 from datetime import datetime
 
 import requests
@@ -28,17 +27,6 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/debug")
-def debug():
-    """调试端点：测试 API Key 是否可用"""
-    try:
-        data = _youtube_get("search?part=snippet&q=test&type=video&maxResults=1")
-        return jsonify({"status": "ok", "api_key_valid": True, "result_count": len(data.get("items", []))})
-    except Exception as e:
-        return jsonify({"status": "error", "error_type": type(e).__name__, "error": str(e),
-                         "traceback": traceback.format_exc()}), 500
-
-
 @app.route("/api/search")
 def api_search():
     keyword = request.args.get("q", "").strip()
@@ -46,11 +34,9 @@ def api_search():
         return jsonify({"error": "关键词不能为空"}), 400
 
     try:
-        data = _youtube_get(
-            f"search?part=snippet&q={keyword}&type=video&maxResults=20"
-        )
+        data = _youtube_get(f"search?part=snippet&q={keyword}&type=video&maxResults=20")
     except Exception as e:
-        return jsonify({"error": f"搜索API失败: {str(e)}"}), 500
+        return jsonify({"error": f"搜索失败: {str(e)}"}), 500
 
     videos = []
     video_ids = []
@@ -70,11 +56,9 @@ def api_search():
         return jsonify({"videos": []})
 
     try:
-        stats_data = _youtube_get(
-            f"videos?part=statistics&id={','.join(video_ids)}"
-        )
+        stats_data = _youtube_get(f"videos?part=statistics&id={','.join(video_ids)}")
     except Exception as e:
-        return jsonify({"error": f"统计API失败: {str(e)}"}), 500
+        return jsonify({"error": f"统计失败: {str(e)}"}), 500
 
     stats_map = {}
     for item in stats_data.get("items", []):
@@ -93,13 +77,42 @@ def api_search():
     return jsonify({"videos": videos})
 
 
+def _fetch_comments_for_video(vid: str) -> list[dict]:
+    """拉取单个视频的评论"""
+    try:
+        cdata = _youtube_get(
+            f"commentThreads?part=snippet&videoId={vid}&maxResults=150&order=relevance"
+        )
+    except Exception:
+        return []
+    comments = []
+    for item in cdata.get("items", []):
+        top = item["snippet"]["topLevelComment"]["snippet"]
+        comments.append({
+            "author": top["authorDisplayName"],
+            "text": top["textDisplay"],
+            "likes": top["likeCount"],
+            "published_at": top["publishedAt"],
+        })
+    return comments
+
+
 @app.route("/api/export", methods=["POST"])
 def api_export():
     data = request.get_json()
     video_ids = data.get("video_ids", [])
+    preview_only = data.get("preview", False)
+
     if not video_ids:
         return jsonify({"error": "请选择至少一个视频"}), 400
 
+    if preview_only:
+        # 预览模式：返回 JSON
+        vid = video_ids[0]
+        comments = _fetch_comments_for_video(vid)
+        return jsonify({"comments": comments})
+
+    # 导出模式：生成 CSV
     all_rows = []
     for vid in video_ids:
         try:
@@ -116,29 +129,15 @@ def api_export():
         pub = info["snippet"]["publishedAt"]
         url = f"https://www.youtube.com/watch?v={vid}"
 
-        try:
-            cdata = _youtube_get(
-                f"commentThreads?part=snippet&videoId={vid}&maxResults=150&order=relevance"
-            )
-        except Exception:
-            continue
-
-        for item in cdata.get("items", []):
-            top = item["snippet"]["topLevelComment"]["snippet"]
+        comments = _fetch_comments_for_video(vid)
+        for c in comments:
             all_rows.append([
-                top["authorDisplayName"],
-                top["textDisplay"],
-                top["likeCount"],
-                top["publishedAt"],
-                title,
-                url,
-                channel,
-                views,
-                pub,
+                c["author"], c["text"], c["likes"], c["published_at"],
+                title, url, channel, views, pub,
             ])
 
     if not all_rows:
-        return jsonify({"error": "所选视频暂无评论或获取失败"}), 404
+        return jsonify({"error": "所选视频暂无评论"}), 404
 
     buf = io.StringIO()
     buf.write("\ufeff")
