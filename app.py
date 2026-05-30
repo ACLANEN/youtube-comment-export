@@ -547,6 +547,49 @@ def api_export_transcript():
                          as_attachment=True, download_name=f"{filename}.csv")
 
 
+
+@app.route("/api/debug-captions")
+def debug_captions():
+    """调试端点：返回 yt-dlp 原始错误"""
+    import traceback
+    video_id = request.args.get("video_id", "dQw4w9WgXcQ")
+    
+    ydl_opts = {
+        'skip_download': True,
+        'writesubtitles': True,
+        'writeautomaticsub': True,
+        'subtitleslangs': ['en'],
+        'subtitlesformat': 'ttml',
+        'outtmpl': {'default': f'/tmp/ytdl_{video_id}.%(ext)s'},
+        'quiet': False,
+        'no_warnings': False,
+    }
+    if CAPTION_PROXY:
+        ydl_opts['proxy'] = CAPTION_PROXY
+    
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(f'https://www.youtube.com/watch?v={video_id}', download=True)
+        # Check for subtitle files
+        import glob as g
+        files = g.glob(f'/tmp/ytdl_{video_id}*')
+        return jsonify({
+            "yt_dlp_ok": True,
+            "title": info.get("title"),
+            "subtitle_files": files,
+            "subtitles_keys": list((info.get("subtitles") or {}).keys()),
+            "auto_captions_keys": list((info.get("automatic_captions") or {}).keys()),
+            "requested_subtitles": list((info.get("requested_subtitles") or {}).keys()),
+        })
+    except Exception as e:
+        return jsonify({
+            "yt_dlp_ok": False,
+            "error_type": type(e).__name__,
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+        })
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
