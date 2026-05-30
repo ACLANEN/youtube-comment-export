@@ -5,6 +5,7 @@ import os
 import csv
 import io
 import json
+import glob as _glob
 from datetime import datetime
 
 import requests
@@ -15,97 +16,112 @@ app = Flask(__name__)
 
 API_KEY = os.getenv("YOUTUBE_API_KEY", "AIzaSyADIpiZxbIQ1fBGuibL7Sqjh_7z8B0pF1g")
 BASE_URL = "https://www.googleapis.com/youtube/v3"
+CAPTION_PROXY = os.getenv("CAPTION_PROXY", "")  # 如 http://user:pass@host:port
+
 
 # ============================================================
-# 轻量字幕提取器（无需 yt-dlp / youtube-transcript-api）
+# 字幕提取器：yt-dlp（无需 ffmpeg，仅字幕提取）
 # ============================================================
+import yt_dlp
 import xml.etree.ElementTree as ET
-import re
 
 def _extract_captions(video_id):
-    """纯 requests 提取字幕：无外部依赖，几十行代码"""
+    """字幕提取：yt-dlp 优先，timedtext API 兜底"""
     import html as html_mod
+
+    # === 方案 A: yt-dlp 下载字幕（反封锁能力最强）===
+    ydl_opts = {
+        'skip_download': True,
+        'writesubtitles': True,
+        'writeautomaticsub': True,
+        'subtitleslangs': ['en'],
+        'subtitlesformat': 'ttml',
+        'outtmpl': {'default': f'/tmp/ytdl_{video_id}.%(ext)s'},
+        'quiet': True,
+        'no_warnings': True,
+    }
+    if CAPTION_PROXY:
+        ydl_opts['proxy'] = CAPTION_PROXY
+
+    segments = None
+    lang = "en"
+
     try:
-        # 1. 获取视频页面
-        resp = requests.get(
-            f"https://www.youtube.com/watch?v={video_id}",
-            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
-            timeout=10
-        )
-        resp.raise_for_status()
-        html = resp.text
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.extract_info(f'https://www.youtube.com/watch?v={video_id}', download=True)
 
-        # 2. 提取 ytInitialPlayerResponse
-        # 用括号计数器匹配嵌套 JSON
-        start = html.find('ytInitialPlayerResponse')
-        if start < 0:
-            return None
-        brace_start = html.find('{', start)
-        if brace_start < 0:
-            return None
-        depth = 0
-        i = brace_start
-        while i < len(html):
-            if html[i] == '{': depth += 1
-            elif html[i] == '}': depth -= 1
-            if depth == 0: break
-            i += 1
-        json_str = html[brace_start:i+1]
-        import json as json_mod
-        player_response = json_mod.loads(json_str)
+        # 查找 yt-dlp 下载的字幕文件
+        for path in sorted(_glob.glob(f'/tmp/ytdl_{video_id}*.ttml')):
+            try:
+                with open(path, 'r') as f:
+                    xml_text = f.read()
+                os.remove(path)
+                if len(xml_text) > 50:
+                    segments = _parse_ttml_segments(xml_text, html_mod)
+                    if segments:
+                        break
+            except Exception:
+                try:
+                    os.remove(path)
+                except Exception:
+                    pass
+    except Exception:
+        pass  # yt-dlp 失败 → 回退方案 B
 
-        # 3. 获取字幕轨道
-        captions = player_response.get("captions", {}).get("playerCaptionsTracklistRenderer", {})
-        tracks = captions.get("captionTracks", [])
-        if not tracks:
-            return None
+    # === 方案 B: timedtext API 直连（回退方案）===
+    if not segments:
+        UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+        xml_text = None
+        for ln in ["en", "en-US", "en-GB"]:
+            try:
+                proxies = {"http": CAPTION_PROXY, "https": CAPTION_PROXY} if CAPTION_PROXY else None
+                r = requests.get(
+                    f"https://www.youtube.com/api/timedtext?v={video_id}&lang={ln}",
+                    headers={"User-Agent": UA}, timeout=10, proxies=proxies
+                )
+                if r.status_code == 200 and len(r.text) > 50:
+                    xml_text = r.text
+                    lang = ln
+                    break
+            except Exception:
+                continue
 
-        # 4. 优先英文，其次自动字幕
-        chosen = None
-        for t in tracks:
-            if t.get("languageCode") == "en" and t.get("kind") != "asr":
-                chosen = t; break
-        if not chosen:
-            for t in tracks:
-                if t.get("languageCode") == "en":
-                    chosen = t; break
-        if not chosen:
-            chosen = tracks[0]
+        if xml_text:
+            segments = _parse_ttml_segments(xml_text, html_mod)
 
-        # 5. 下载字幕文件
-        base_url = chosen.get("baseUrl")
-        if not base_url:
-            return None
-        sub_resp = requests.get(base_url, timeout=10)
-        sub_resp.raise_for_status()
+    if not segments:
+        return None
 
-        # 6. 解析 XML 字幕
-        root = ET.fromstring(sub_resp.text)
+    return {
+        "video_id": video_id,
+        "language": lang,
+        "is_auto": False,
+        "segments": segments,
+        "total": len(segments),
+    }
+
+
+def _parse_ttml_segments(xml_text, html_mod):
+    """解析 TTML/XML 字幕为 segments 列表"""
+    try:
+        root = ET.fromstring(xml_text)
         segments = []
-        ns = {"tt": "http://www.w3.org/ns/ttml"}
-        # 尝试 TTML 格式
         for p in root.iter("{http://www.w3.org/ns/ttml}p"):
             begin = p.attrib.get("begin", "0")
             dur = p.attrib.get("dur", "1")
             text = "".join(p.itertext()).strip()
             if text:
-                # 解析时间
                 start_sec = _parse_ttml_time(begin)
                 dur_sec = _parse_ttml_time(dur)
-                segments.append({"text": html_mod.unescape(text), "start": round(start_sec, 1), "duration": round(dur_sec, 1)})
+                segments.append({
+                    "text": html_mod.unescape(text),
+                    "start": round(start_sec, 1),
+                    "duration": round(dur_sec, 1)
+                })
+        return segments
+    except Exception:
+        return []
 
-        if not segments:
-            return None
-
-        return {
-            "video_id": video_id,
-            "language": chosen.get("languageCode", "en"),
-            "is_auto": chosen.get("kind") == "asr",
-            "segments": segments,
-            "total": len(segments),
-        }
-    except Exception as e:
-        return {"error": f"extraction failed: {str(e)[:100]}"}
 
 def _parse_ttml_time(t: str) -> float:
     """00:01:23.456 或 12.345 → 秒数"""
@@ -119,9 +135,6 @@ def _parse_ttml_time(t: str) -> float:
             m, s = parts
             return int(m) * 60 + float(s)
     return float(t) if t else 0
-
-
-
 
 
 def _youtube_get(path: str) -> dict:
