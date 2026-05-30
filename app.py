@@ -9,7 +9,6 @@ from datetime import datetime
 
 import requests
 from youtube_transcript_api import YouTubeTranscriptApi
-import yt_dlp
 _transcript_api = YouTubeTranscriptApi()
 from flask import Flask, render_template, request, jsonify, send_file
 
@@ -84,53 +83,6 @@ def api_captions():
         "text": text,
         "segments": segments,
         "total_segments": len(segments),
-    })
-
-
-@app.route("/test-transcript")
-def test_transcript():
-    '''批量测试字幕可用性 — 验证 yt-dlp 在 Railway 的成功率'''
-    video_ids = request.args.get("ids", "dQw4w9WgXcQ").split(",")[:5]
-    results = []
-
-    for vid in video_ids:
-        vid = vid.strip()
-        if not vid:
-            continue
-        status = "unknown"
-        subtitle_type = "none"
-        try:
-            opts = {"quiet": True, "no_warnings": True, "skip_download": True}
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(f"https://www.youtube.com/watch?v={vid}", download=False)
-                subs = info.get("subtitles", {})
-                auto_subs = info.get("automatic_captions", {})
-
-                if subs:
-                    status = "available"
-                    subtitle_type = "manual"
-                elif auto_subs:
-                    status = "available"
-                    subtitle_type = "auto"
-                else:
-                    status = "unavailable"
-                    subtitle_type = "none"
-        except Exception as e:
-            status = "error"
-            subtitle_type = str(e)[:100]
-
-        results.append({
-            "video_id": vid,
-            "status": status,
-            "subtitle_type": subtitle_type,
-        })
-
-    available = sum(1 for r in results if r["status"] == "available")
-    return jsonify({
-        "tested": len(results),
-        "available": available,
-        "rate": f"{available}/{len(results)}" if results else "0/0",
-        "results": results,
     })
 
 @app.route("/api/search")
