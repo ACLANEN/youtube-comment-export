@@ -565,7 +565,7 @@ async function loadTranscript(i) {
         var sec = Math.floor(s.start % 60);
         var ts = (m < 10 ? "0" : "") + m + ":" + (sec < 10 ? "0" : "") + sec;
         return '<div style="display:flex;gap:12px;padding:8px 20px;border-bottom:1px solid rgba(255,255,255,.02);font-size:13px">' +
-          '<span style="color:var(--accent);flex-shrink:0;min-width:44px;font-size:12px">' + ts + '</span>' +
+          '<a href="https://www.youtube.com/watch?v=' + v.video_id + '&t=' + Math.floor(s.start) + '" target="_blank" style="color:var(--accent);flex-shrink:0;min-width:44px;font-size:12px;text-decoration:none" title="跳转到此时间点">' + ts + '</a>' +
           '<span style="color:var(--text-secondary);line-height:1.5">' + esc(s.text) + '</span></div>';
       }).join("") +
       (data.segments.length > 20 ? '<div style="text-align:center;color:#3d3d3d;font-size:11px;padding:10px">... 还有 ' + (data.segments.length - 20) + ' 段</div>' : '');

@@ -394,8 +394,9 @@ def api_export_transcript():
             mm = int(start // 60)
             ss = int(start % 60)
             timestamp = f"{mm:02d}:{ss:02d}"
+            link = f"https://www.youtube.com/watch?v={vid}&t={int(start)}"
             all_rows.append([
-                title, vid, timestamp, round(seg.duration, 1), seg.text
+                title, vid, timestamp, round(seg.duration, 1), seg.text, link
             ])
 
     if not all_rows:
@@ -410,26 +411,26 @@ def api_export_transcript():
         except ImportError:
             return jsonify({"error": "需要openpyxl"}), 500
         wb = Workbook(); ws = wb.active; ws.title = "字幕"
-        hdrs = ["Video Title", "Video ID", "Timestamp", "Duration", "Transcript"]
+        hdrs = ["Video Title", "Video ID", "Timestamp", "Duration", "Transcript", "Video Link"]
         hf = Font(bold=True, color="FFFFFF"); hb = PatternFill(start_color="1a1a1a", end_color="1a1a1a", fill_type="solid")
         for c, h in enumerate(hdrs, 1):
             cell = ws.cell(row=1, column=c, value=h); cell.font = hf; cell.fill = hb
         for r, row in enumerate(all_rows, 2):
             for c, v in enumerate(row, 1): ws.cell(row=r, column=c, value=v)
-        ws.column_dimensions["A"].width = 45; ws.column_dimensions["B"].width = 15; ws.column_dimensions["E"].width = 80
+        ws.column_dimensions["A"].width = 45; ws.column_dimensions["B"].width = 15; ws.column_dimensions["E"].width = 80; ws.column_dimensions["F"].width = 50
         buf = io.BytesIO(); wb.save(buf); buf.seek(0)
         return send_file(buf, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                          as_attachment=True, download_name=f"{filename}.xlsx")
     elif fmt == "json":
         result = {"exported_at": datetime.now().isoformat(), "transcripts": []}
         for r in all_rows:
-            result["transcripts"].append(dict(zip(["video_title","video_id","timestamp","duration","text"], r)))
+            result["transcripts"].append(dict(zip(["video_title","video_id","timestamp","duration","text","link"], r)))
         buf = io.BytesIO(); buf.write(json.dumps(result, ensure_ascii=False, indent=2).encode()); buf.seek(0)
         return send_file(buf, mimetype="application/json", as_attachment=True, download_name=f"{filename}.json")
     else:
         buf = io.StringIO(); buf.write("\ufeff")
         writer = csv.writer(buf)
-        writer.writerow(["Video Title", "Video ID", "Timestamp", "Duration", "Transcript"])
+        writer.writerow(["Video Title", "Video ID", "Timestamp", "Duration", "Transcript", "Video Link"])
         for row in all_rows: writer.writerow(row)
         buf.seek(0)
         return send_file(io.BytesIO(buf.getvalue().encode("utf-8")), mimetype="text/csv",
