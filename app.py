@@ -8,6 +8,8 @@ import json
 from datetime import datetime
 
 import requests
+from youtube_transcript_api import YouTubeTranscriptApi
+_transcript_api = YouTubeTranscriptApi()
 from flask import Flask, render_template, request, jsonify, send_file
 
 app = Flask(__name__)
@@ -54,6 +56,34 @@ def verify_password():
 def index():
     return render_template("index.html")
 
+
+
+@app.route("/api/captions")
+def api_captions():
+    video_id = request.args.get("video_id", "").strip()
+    if not video_id:
+        return jsonify({"error": "缺少 video_id"}), 400
+    lang = request.args.get("lang", "")
+    try:
+        if lang:
+            transcript = _transcript_api.fetch(video_id, languages=[lang])
+        else:
+            transcript = _transcript_api.fetch(video_id)
+    except Exception as e:
+        return jsonify({"error": f"字幕获取失败（该视频可能无字幕）: {str(e)}"}), 404
+
+    segs = list(transcript)
+    text = " ".join([s.text for s in segs])
+    segments = [{"text": s.text, "start": round(s.start, 1),
+                  "duration": round(s.duration, 1)} for s in segs]
+
+    return jsonify({
+        "video_id": video_id,
+        "language": transcript.language if hasattr(transcript, 'language') else "",
+        "text": text,
+        "segments": segments,
+        "total_segments": len(segments),
+    })
 
 @app.route("/api/search")
 def api_search():
@@ -333,6 +363,77 @@ def api_export_stats():
         "total_likes": total_likes,
     })
 
+
+
+@app.route("/api/export/transcript", methods=["POST"])
+def api_export_transcript():
+    data = request.get_json()
+    video_ids = data.get("video_ids", [])
+    fmt = data.get("format", "csv")
+    if not video_ids:
+        return jsonify({"error": "未选择视频"}), 400
+
+    all_rows = []
+    for vid in video_ids:
+        try:
+            vdata = _youtube_get(f"videos?part=snippet&id={vid}")
+        except Exception:
+            continue
+        items = vdata.get("items", [])
+        if not items:
+            continue
+        title = items[0]["snippet"]["title"]
+
+        try:
+            transcript = _transcript_api.fetch(vid)
+        except Exception:
+            continue
+
+        for seg in transcript:
+            start = seg.start
+            mm = int(start // 60)
+            ss = int(start % 60)
+            timestamp = f"{mm:02d}:{ss:02d}"
+            all_rows.append([
+                title, vid, timestamp, round(seg.duration, 1), seg.text
+            ])
+
+    if not all_rows:
+        return jsonify({"error": "所选视频无字幕"}), 404
+
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    filename = f"transcript_{date_str}"
+
+    if fmt == "xlsx":
+        try:
+            from openpyxl import Workbook; from openpyxl.styles import Font, PatternFill
+        except ImportError:
+            return jsonify({"error": "需要openpyxl"}), 500
+        wb = Workbook(); ws = wb.active; ws.title = "字幕"
+        hdrs = ["Video Title", "Video ID", "Timestamp", "Duration", "Transcript"]
+        hf = Font(bold=True, color="FFFFFF"); hb = PatternFill(start_color="1a1a1a", end_color="1a1a1a", fill_type="solid")
+        for c, h in enumerate(hdrs, 1):
+            cell = ws.cell(row=1, column=c, value=h); cell.font = hf; cell.fill = hb
+        for r, row in enumerate(all_rows, 2):
+            for c, v in enumerate(row, 1): ws.cell(row=r, column=c, value=v)
+        ws.column_dimensions["A"].width = 45; ws.column_dimensions["B"].width = 15; ws.column_dimensions["E"].width = 80
+        buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+        return send_file(buf, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         as_attachment=True, download_name=f"{filename}.xlsx")
+    elif fmt == "json":
+        result = {"exported_at": datetime.now().isoformat(), "transcripts": []}
+        for r in all_rows:
+            result["transcripts"].append(dict(zip(["video_title","video_id","timestamp","duration","text"], r)))
+        buf = io.BytesIO(); buf.write(json.dumps(result, ensure_ascii=False, indent=2).encode()); buf.seek(0)
+        return send_file(buf, mimetype="application/json", as_attachment=True, download_name=f"{filename}.json")
+    else:
+        buf = io.StringIO(); buf.write("\ufeff")
+        writer = csv.writer(buf)
+        writer.writerow(["Video Title", "Video ID", "Timestamp", "Duration", "Transcript"])
+        for row in all_rows: writer.writerow(row)
+        buf.seek(0)
+        return send_file(io.BytesIO(buf.getvalue().encode("utf-8")), mimetype="text/csv",
+                         as_attachment=True, download_name=f"{filename}.csv")
 
 
 if __name__ == "__main__":

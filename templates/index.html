@@ -227,6 +227,13 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .pw-box input:focus { border-color: var(--accent); }
 .pw-box .pw-error { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 20px; }
 
+
+/* ====== Tabs ====== */
+.mode-tabs { display: flex; gap: 0; margin-bottom: 20px; }
+.mode-tab { padding: 10px 24px; font-size: 14px; font-weight: 500; color: var(--text-tertiary); cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s; background: none; border-top: none; border-left: none; border-right: none; }
+.mode-tab:hover { color: var(--text-secondary); }
+.mode-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
 </style>
 </head>
 <body>
@@ -330,7 +337,13 @@ p, li { font-size: 16px; color: var(--text-secondary); }
           <button class="select-all" id="selectAllBtn" onclick="toggleAll()" style="display:none">全选 / 取消</button>
         </div>
 
-        <div class="filter-row">
+        
+        <div class="mode-tabs" id="modeTabs" style="display:none">
+          <button class="mode-tab active" id="tabComments" onclick="switchMode('comments')">💬 评论</button>
+          <button class="mode-tab" id="tabTranscript" onclick="switchMode('transcript')">📝 字幕</button>
+        </div>
+        <div class="filter-row" id="filterComments">
+
           <label>排序</label>
           <select id="sortBy" onchange="applySort()">
             <option value="views_desc">播放量 ↓</option>
@@ -351,6 +364,14 @@ p, li { font-size: 16px; color: var(--text-secondary); }
           <select id="exportFormat">
             <option value="csv">CSV</option>
             <option value="xlsx">Excel (.xlsx)</option>
+            <option value="json">JSON</option>
+          </select>
+        </div>
+        <div class="filter-row" id="filterTranscript" style="display:none">
+          <label>导出格式</label>
+          <select id="exportFormatTranscript">
+            <option value="csv">CSV</option>
+            <option value="xlsx">Excel</option>
             <option value="json">JSON</option>
           </select>
         </div>
@@ -412,7 +433,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
     <span class="badge" id="selectedCount">0</span>
     <span class="label">个视频已选</span>
     <span class="stat-item" id="exportStats" style="display:none"></span>
-    <button class="btn btn-primary" onclick="doExport()">⬇ 导出</button>
+    <button class="btn btn-primary" id="exportActionBtn" onclick="doExport()">⬇ 导出</button>
   </div>
 
 </div>
@@ -446,6 +467,18 @@ async function quickSearch(kw) {
   document.getElementById("keyword").value = kw;
   doSearch();
   document.getElementById("search").scrollIntoView({behavior:"smooth"});
+}
+
+function switchMode(mode) {
+  currentMode = mode;
+  document.getElementById("tabComments").classList.toggle("active", mode === "comments");
+  document.getElementById("tabTranscript").classList.toggle("active", mode === "transcript");
+  document.getElementById("filterComments").style.display = mode === "comments" ? "flex" : "none";
+  document.getElementById("filterTranscript").style.display = mode === "transcript" ? "flex" : "none";
+  document.getElementById("exportActionBtn").textContent = mode === "comments" ? "⬇ 导出评论" : "⬇ 导出字幕";
+  previewCache = {};
+  document.querySelectorAll(".video-card.expanded").forEach(function(c) { c.classList.remove("expanded"); });
+  document.querySelectorAll(".comment-preview").forEach(function(c) { c.innerHTML = ""; });
 }
 
 async function doSearch() {
@@ -512,8 +545,31 @@ async function togglePreview(i, event) {
   document.querySelectorAll(".video-card.expanded").forEach(c => c.classList.remove("expanded"));
   if (!wasExpanded) {
     card.classList.add("expanded");
-    if (!previewCache[i]) await loadPreview(i);
+    if (!previewCache[i]) { if (currentMode === "comments") await loadPreview(i); else await loadTranscript(i); }
   }
+}
+
+async function loadTranscript(i) {
+  var v = videos[i];
+  var div = document.getElementById("preview-" + i);
+  div.innerHTML = '<div style="color:var(--text-tertiary);font-size:13px;padding:16px 20px;">加载字幕中...</div>';
+  try {
+    var resp = await fetch("/api/captions?video_id=" + v.video_id);
+    var data = await resp.json();
+    if (data.error) { div.innerHTML = '<div style="color:var(--text-tertiary);font-size:13px;padding:16px 20px;">' + data.error + '</div>'; return; }
+    previewCache[i] = data;
+    var top20 = data.segments.slice(0, 20);
+    div.innerHTML = '<div class="preview-header">字幕预览 (' + (data.total_segments || data.segments.length) + ' 段)</div>' +
+      top20.map(function(s) {
+        var m = Math.floor(s.start / 60);
+        var sec = Math.floor(s.start % 60);
+        var ts = (m < 10 ? "0" : "") + m + ":" + (sec < 10 ? "0" : "") + sec;
+        return '<div style="display:flex;gap:12px;padding:8px 20px;border-bottom:1px solid rgba(255,255,255,.02);font-size:13px">' +
+          '<span style="color:var(--accent);flex-shrink:0;min-width:44px;font-size:12px">' + ts + '</span>' +
+          '<span style="color:var(--text-secondary);line-height:1.5">' + esc(s.text) + '</span></div>';
+      }).join("") +
+      (data.segments.length > 20 ? '<div style="text-align:center;color:#3d3d3d;font-size:11px;padding:10px">... 还有 ' + (data.segments.length - 20) + ' 段</div>' : '');
+  } catch(e) { div.innerHTML = '<div style="color:var(--text-tertiary);font-size:13px;padding:16px 20px;">加载失败</div>'; }
 }
 
 async function loadPreview(i) {
@@ -548,6 +604,7 @@ async function updateUI() {
   document.getElementById("selectedCount").textContent = count;
   document.getElementById("exportBar").classList.toggle("visible", count > 0);
   document.getElementById("selectAllBtn").style.display = videos.length ? "inline" : "none";
+  document.getElementById("modeTabs").style.display = "flex";
   document.getElementById("loadMoreWrap").classList.toggle("active", !!nextPageToken);
 
   // 拉取导出统计
@@ -563,6 +620,24 @@ async function updateUI() {
   }
 }
 
+function doExportTranscript() {
+  var checked = document.querySelectorAll("#videoList input[type='checkbox']:checked");
+  var ids = Array.from(checked).map(function(cb) { return videos[cb.value].video_id; });
+  if (!ids.length) return;
+  var bar = document.getElementById("exportBar");
+  var format = document.getElementById("exportFormatTranscript").value;
+  var oldHTML = bar.innerHTML;
+  bar.innerHTML = '<span style="color:var(--accent);">⏳ 导出字幕中...</span>';
+  fetch("/api/export/transcript", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ video_ids: ids, format: format }) })
+    .then(function(r) { if(!r.ok) throw new Error("导出失败"); return r.blob(); })
+    .then(function(blob) {
+      var a = document.createElement("a"); var ext = format==="xlsx"?".xlsx":format==="json"?".json":".csv";
+      a.href = URL.createObjectURL(blob); a.download = "transcript_" + new Date().toISOString().slice(0,10) + ext;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
+      showToast("✓ 字幕导出成功");
+    }).catch(function(e) { showToast("导出失败"); }).finally(function() { bar.innerHTML = oldHTML; });
+}
+
 function showToast(msg) {
   var t = document.createElement("div");
   t.className = "toast";
@@ -572,6 +647,7 @@ function showToast(msg) {
 }
 
 function doExport() {
+  if (currentMode === "transcript") { doExportTranscript(); return; }
   var checked = document.querySelectorAll("#videoList input[type='checkbox']:checked");
   var ids = [];
   for (var i = 0; i < checked.length; i++) {
@@ -619,6 +695,8 @@ function setState(s) {
   // 重置卡片动画
   document.querySelectorAll(".video-card").forEach(c => { c.style.animation = "none"; c.offsetHeight; c.style.animation = ""; });
   document.getElementById("loadMoreWrap").classList.toggle("active", s === "results" && !!nextPageToken);
+  document.getElementById("modeTabs").style.display = s === "results" ? "flex" : "none";
+  if (s !== "results") { currentMode = "comments"; switchMode("comments"); }
 }
 
 function applySort() {
