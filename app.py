@@ -85,42 +85,6 @@ def api_captions():
         "total_segments": len(segments),
     })
 
-
-@app.route("/test-transcript")
-def test_transcript():
-    import subprocess
-    video_ids = request.args.get("ids", "dQw4w9WgXcQ").split(",")[:5]
-    results = []
-
-    for vid in video_ids:
-        vid = vid.strip()
-        if not vid: continue
-        try:
-            r = subprocess.run(
-                ["yt-dlp", "--skip-download", "--print", "%(subtitles)s%(automatic_captions)s",
-                 "--ignore-errors", "--no-warnings",
-                 f"https://www.youtube.com/watch?v={vid}"],
-                capture_output=True, text=True, timeout=20
-            )
-            out = r.stdout.strip()
-            has_manual = "subtitles" in out and out.count("{") > 1
-            has_auto = "automatic" in out.lower()
-            if out and ("lang" in out or "en" in out):
-                results.append({"video_id": vid, "status": "available",
-                               "subtitle_type": "manual" if "manual" in out.lower() or not "auto" in out.lower() else "auto"})
-            else:
-                results.append({"video_id": vid, "status": "unavailable", "subtitle_type": "none"})
-        except Exception as e:
-            results.append({"video_id": vid, "status": "error",
-                           "subtitle_type": str(e)[:80]})
-
-    available = sum(1 for r in results if r["status"] == "available")
-    return jsonify({
-        "tested": len(results), "available": available,
-        "rate": f"{available}/{len(results)}" if results else "0/0",
-        "results": results
-    })
-
 @app.route("/api/search")
 def api_search():
     keyword = request.args.get("q", "").strip()
