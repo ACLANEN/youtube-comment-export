@@ -8,14 +8,119 @@ import json
 from datetime import datetime
 
 import requests
-from youtube_transcript_api import YouTubeTranscriptApi
-_transcript_api = YouTubeTranscriptApi()
+
 from flask import Flask, render_template, request, jsonify, send_file
 
 app = Flask(__name__)
 
 API_KEY = os.getenv("YOUTUBE_API_KEY", "AIzaSyADIpiZxbIQ1fBGuibL7Sqjh_7z8B0pF1g")
 BASE_URL = "https://www.googleapis.com/youtube/v3"
+
+# ============================================================
+# 轻量字幕提取器（无需 yt-dlp / youtube-transcript-api）
+# ============================================================
+import xml.etree.ElementTree as ET
+import re
+
+def _extract_captions(video_id):
+    """纯 requests 提取字幕：无外部依赖，几十行代码"""
+    import html as html_mod
+    try:
+        # 1. 获取视频页面
+        resp = requests.get(
+            f"https://www.youtube.com/watch?v={video_id}",
+            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
+            timeout=10
+        )
+        resp.raise_for_status()
+        html = resp.text
+
+        # 2. 提取 ytInitialPlayerResponse
+        # 用括号计数器匹配嵌套 JSON
+        start = html.find('ytInitialPlayerResponse')
+        if start < 0:
+            return None
+        brace_start = html.find('{', start)
+        if brace_start < 0:
+            return None
+        depth = 0
+        i = brace_start
+        while i < len(html):
+            if html[i] == '{': depth += 1
+            elif html[i] == '}': depth -= 1
+            if depth == 0: break
+            i += 1
+        json_str = html[brace_start:i+1]
+        import json as json_mod
+        player_response = json_mod.loads(json_str)
+
+        # 3. 获取字幕轨道
+        captions = player_response.get("captions", {}).get("playerCaptionsTracklistRenderer", {})
+        tracks = captions.get("captionTracks", [])
+        if not tracks:
+            return None
+
+        # 4. 优先英文，其次自动字幕
+        chosen = None
+        for t in tracks:
+            if t.get("languageCode") == "en" and t.get("kind") != "asr":
+                chosen = t; break
+        if not chosen:
+            for t in tracks:
+                if t.get("languageCode") == "en":
+                    chosen = t; break
+        if not chosen:
+            chosen = tracks[0]
+
+        # 5. 下载字幕文件
+        base_url = chosen.get("baseUrl")
+        if not base_url:
+            return None
+        sub_resp = requests.get(base_url, timeout=10)
+        sub_resp.raise_for_status()
+
+        # 6. 解析 XML 字幕
+        root = ET.fromstring(sub_resp.text)
+        segments = []
+        ns = {"tt": "http://www.w3.org/ns/ttml"}
+        # 尝试 TTML 格式
+        for p in root.iter("{http://www.w3.org/ns/ttml}p"):
+            begin = p.attrib.get("begin", "0")
+            dur = p.attrib.get("dur", "1")
+            text = "".join(p.itertext()).strip()
+            if text:
+                # 解析时间
+                start_sec = _parse_ttml_time(begin)
+                dur_sec = _parse_ttml_time(dur)
+                segments.append({"text": html_mod.unescape(text), "start": round(start_sec, 1), "duration": round(dur_sec, 1)})
+
+        if not segments:
+            return None
+
+        return {
+            "video_id": video_id,
+            "language": chosen.get("languageCode", "en"),
+            "is_auto": chosen.get("kind") == "asr",
+            "segments": segments,
+            "total": len(segments),
+        }
+    except Exception as e:
+        return {"error": f"extraction failed: {str(e)[:100]}"}
+
+def _parse_ttml_time(t: str) -> float:
+    """00:01:23.456 或 12.345 → 秒数"""
+    t = t.strip()
+    if ":" in t:
+        parts = t.split(":")
+        if len(parts) == 3:
+            h, m, s = parts
+            return int(h) * 3600 + int(m) * 60 + float(s)
+        elif len(parts) == 2:
+            m, s = parts
+            return int(m) * 60 + float(s)
+    return float(t) if t else 0
+
+
 
 
 
@@ -63,26 +168,19 @@ def api_captions():
     video_id = request.args.get("video_id", "").strip()
     if not video_id:
         return jsonify({"error": "缺少 video_id"}), 400
-    lang = request.args.get("lang", "")
-    try:
-        if lang:
-            transcript = _transcript_api.fetch(video_id, languages=[lang])
-        else:
-            transcript = _transcript_api.fetch(video_id)
-    except Exception as e:
-        return jsonify({"error": f"字幕获取失败（该视频可能无字幕）: {str(e)}"}), 404
+    result = _extract_captions(video_id)
+    if result is None:
+        return jsonify({"error": "字幕获取失败（视频可能无字幕或被封锁）"}), 404
+    if "error" in result:
+        return jsonify(result), 500
 
-    segs = list(transcript)
-    text = " ".join([s.text for s in segs])
-    segments = [{"text": s.text, "start": round(s.start, 1),
-                  "duration": round(s.duration, 1)} for s in segs]
-
+    text = " ".join([s["text"] for s in result["segments"]])
     return jsonify({
         "video_id": video_id,
-        "language": transcript.language if hasattr(transcript, 'language') else "",
+        "language": result["language"],
         "text": text,
-        "segments": segments,
-        "total_segments": len(segments),
+        "segments": result["segments"],
+        "total_segments": result["total"],
     })
 
 @app.route("/api/search")
@@ -384,19 +482,18 @@ def api_export_transcript():
             continue
         title = items[0]["snippet"]["title"]
 
-        try:
-            transcript = _transcript_api.fetch(vid)
-        except Exception:
+        result = _extract_captions(vid)
+        if not result:
             continue
 
-        for seg in transcript:
-            start = seg.start
+        for seg in result["segments"]:
+            start = seg["start"]
             mm = int(start // 60)
             ss = int(start % 60)
             timestamp = f"{mm:02d}:{ss:02d}"
             link = f"https://www.youtube.com/watch?v={vid}&t={int(start)}"
             all_rows.append([
-                title, vid, timestamp, round(seg.duration, 1), seg.text, link
+                title, vid, timestamp, round(seg["duration"], 1), seg["text"], link
             ])
 
     if not all_rows:
