@@ -3,3 +3,4 @@ requests>=2.28
 gunicorn>=21.2
 openpyxl>=3.1
 youtube-transcript-api>=1.0
+yt-dlp>=2024.0
