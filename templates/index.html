@@ -625,8 +625,7 @@ function setState(s) {
   // 重置卡片动画
   document.querySelectorAll(".video-card").forEach(c => { c.style.animation = "none"; c.offsetHeight; c.style.animation = ""; });
   document.getElementById("loadMoreWrap").classList.toggle("active", s === "results" && !!nextPageToken);
-  document.getElementById("modeTabs").style.display = s === "results" ? "flex" : "none";
-  if (s !== "results") { currentMode = "comments"; switchMode("comments"); }
+  if (s !== "results") { currentMode = "comments"; }
 }
 
 function applySort() {
