@@ -38,17 +38,6 @@ def _format_duration(iso: str) -> str:
     return ":".join(parts) if len(parts) > 2 else f"{parts[0]}:{parts[1]}"
 
 
-SITE_PASSWORD = os.getenv("SITE_PASSWORD", "")
-
-@app.route("/api/verify-password", methods=["POST"])
-def verify_password():
-    if not SITE_PASSWORD:
-        return jsonify({"ok": True})
-    data = request.get_json()
-    if data.get("password") == SITE_PASSWORD:
-        return jsonify({"ok": True})
-    return jsonify({"ok": False, "error": "密码错误"}), 403
-
 @app.route("/")
 def index():
     return render_template("index.html")
