@@ -94,6 +94,9 @@ def api_verify_code():
     if not entry.get("active", True):
         return jsonify({"ok": False, "error": "激活码已禁用"}), 403
 
+    if entry.get("used", False):
+        return jsonify({"ok": False, "error": "激活码已被使用"}), 403
+
     expires = entry.get("expires_at")
     if expires:
         try:
@@ -102,6 +105,13 @@ def api_verify_code():
                 return jsonify({"ok": False, "error": "激活码已过期"}), 403
         except ValueError:
             pass
+
+    # 标记为已使用
+    def _mark_used(codes):
+        if code in codes:
+            codes[code]["used"] = True
+        return codes
+    _update_codes(_mark_used)
 
     return jsonify({"ok": True, "expires_at": expires})
 
@@ -132,6 +142,7 @@ def admin_list_codes():
         items.append({
             "code": code,
             "active": entry.get("active", True),
+            "used": entry.get("used", False),
             "created_at": entry.get("created_at", ""),
             "expires_at": entry.get("expires_at", ""),
             "note": entry.get("note", ""),
@@ -154,6 +165,7 @@ def admin_create_code():
     def _add(codes):
         codes[code] = {
             "active": True,
+            "used": False,
             "created_at": now.isoformat(),
             "expires_at": expires.isoformat(),
             "note": note,

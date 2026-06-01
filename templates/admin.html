@@ -111,7 +111,8 @@ function loadCodes() {
       var now=new Date();
       var expired=c.expires_at&&new Date(c.expires_at)<now;
       var statusBadge;
-      if(!c.active) statusBadge='<span class="badge badge-inactive">已禁用</span>';
+      if(c.used) statusBadge='<span class="badge badge-expired">已使用</span>';
+      else if(!c.active) statusBadge='<span class="badge badge-inactive">已禁用</span>';
       else if(expired) statusBadge='<span class="badge badge-expired">已过期</span>';
       else statusBadge='<span class="badge badge-active">生效中</span>';
 
