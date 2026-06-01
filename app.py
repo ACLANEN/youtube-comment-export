@@ -5,19 +5,55 @@ import os
 import csv
 import io
 import json
-from datetime import datetime
+import uuid
+import threading
+from datetime import datetime, timedelta
 
 import requests
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, redirect
 
 app = Flask(__name__)
 
-API_KEY = os.getenv("YOUTUBE_API_KEY", "AIzaSyADIpiZxbIQ1fBGuibL7Sqjh_7z8B0pF1g")
-BASE_URL = "https://www.googleapis.com/youtube/v3"
+# ── 配置（仅从环境变量读取，无默认值暴露）──
+API_KEY = os.getenv("YOUTUBE_API_KEY")
+BASE_URL = os.getenv("YOUTUBE_BASE_URL", "https://www.googleapis.com/youtube/v3")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+
+# ── 激活码存储 ──
+CODES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "codes.json")
+_codes_lock = threading.Lock()
+
+def _load_codes():
+    try:
+        with open(CODES_FILE, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+def _save_codes(codes):
+    with open(CODES_FILE, "w") as f:
+        json.dump(codes, f, ensure_ascii=False, indent=2)
+
+def _get_codes():
+    with _codes_lock:
+        return _load_codes()
+
+def _update_codes(fn):
+    with _codes_lock:
+        codes = _load_codes()
+        codes = fn(codes)
+        _save_codes(codes)
+        return codes
+
+# 启动时初始化（如果文件不存在则创建）
+if not os.path.exists(CODES_FILE):
+    _save_codes({})
 
 
 def _youtube_get(path: str) -> dict:
+    if not API_KEY:
+        raise RuntimeError("YOUTUBE_API_KEY 未配置")
     url = f"{BASE_URL}/{path}&key={API_KEY}"
     resp = requests.get(url, timeout=15)
     resp.raise_for_status()
@@ -38,6 +74,145 @@ def _format_duration(iso: str) -> str:
     return ":".join(parts) if len(parts) > 2 else f"{parts[0]}:{parts[1]}"
 
 
+# ═══════════════════════════════════════
+#  激活码 API
+# ═══════════════════════════════════════
+
+@app.route("/api/verify-code", methods=["POST"])
+def api_verify_code():
+    data = request.get_json()
+    code = (data.get("code") or "").strip().upper()
+    if not code:
+        return jsonify({"ok": False, "error": "请输入激活码"}), 400
+
+    codes = _get_codes()
+    entry = codes.get(code)
+
+    if not entry:
+        return jsonify({"ok": False, "error": "激活码无效"}), 403
+
+    if not entry.get("active", True):
+        return jsonify({"ok": False, "error": "激活码已禁用"}), 403
+
+    expires = entry.get("expires_at")
+    if expires:
+        try:
+            exp = datetime.fromisoformat(expires)
+            if datetime.now() > exp:
+                return jsonify({"ok": False, "error": "激活码已过期"}), 403
+        except ValueError:
+            pass
+
+    return jsonify({"ok": True, "expires_at": expires})
+
+
+# ═══════════════════════════════════════
+#  管理面板
+# ═══════════════════════════════════════
+
+@app.route("/admin")
+def admin_panel():
+    return render_template("admin.html")
+
+
+@app.route("/api/admin/login", methods=["POST"])
+def admin_login():
+    data = request.get_json()
+    pw = data.get("password", "")
+    if pw == ADMIN_PASSWORD:
+        return jsonify({"ok": True, "token": "admin_session"})
+    return jsonify({"ok": False, "error": "密码错误"}), 403
+
+
+@app.route("/api/admin/codes", methods=["GET"])
+def admin_list_codes():
+    codes = _get_codes()
+    items = []
+    for code, entry in codes.items():
+        items.append({
+            "code": code,
+            "active": entry.get("active", True),
+            "created_at": entry.get("created_at", ""),
+            "expires_at": entry.get("expires_at", ""),
+            "note": entry.get("note", ""),
+        })
+    items.sort(key=lambda x: x["created_at"], reverse=True)
+    return jsonify({"codes": items})
+
+
+@app.route("/api/admin/codes/create", methods=["POST"])
+def admin_create_code():
+    data = request.get_json()
+    note = data.get("note", "").strip()
+    days = int(data.get("days", 30))
+
+    # 生成 8 位大写激活码
+    code = uuid.uuid4().hex[:8].upper()
+    now = datetime.now()
+    expires = now + timedelta(days=days)
+
+    def _add(codes):
+        codes[code] = {
+            "active": True,
+            "created_at": now.isoformat(),
+            "expires_at": expires.isoformat(),
+            "note": note,
+        }
+        return codes
+
+    _update_codes(_add)
+    return jsonify({"ok": True, "code": code, "expires_at": expires.isoformat()})
+
+
+@app.route("/api/admin/codes/toggle", methods=["POST"])
+def admin_toggle_code():
+    data = request.get_json()
+    code = (data.get("code") or "").strip().upper()
+
+    def _toggle(codes):
+        if code in codes:
+            codes[code]["active"] = not codes[code].get("active", True)
+        return codes
+
+    _update_codes(_toggle)
+    codes = _get_codes()
+    entry = codes.get(code, {})
+    return jsonify({"ok": True, "active": entry.get("active", True)})
+
+
+@app.route("/api/admin/codes/delete", methods=["POST"])
+def admin_delete_code():
+    data = request.get_json()
+    code = (data.get("code") or "").strip().upper()
+
+    def _del(codes):
+        codes.pop(code, None)
+        return codes
+
+    _update_codes(_del)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/admin/codes/update", methods=["POST"])
+def admin_update_code():
+    data = request.get_json()
+    code = (data.get("code") or "").strip().upper()
+    days = data.get("days")
+
+    def _upd(codes):
+        if code in codes and days:
+            now = datetime.now()
+            codes[code]["expires_at"] = (now + timedelta(days=int(days))).isoformat()
+        return codes
+
+    _update_codes(_upd)
+    return jsonify({"ok": True})
+
+
+# ═══════════════════════════════════════
+#  主页面
+# ═══════════════════════════════════════
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -45,6 +220,9 @@ def index():
 
 @app.route("/api/search")
 def api_search():
+    if not API_KEY:
+        return jsonify({"error": "服务未配置 API Key"}), 500
+
     keyword = request.args.get("q", "").strip()
     page_token = request.args.get("pageToken", "")
     if not keyword:
@@ -101,8 +279,6 @@ def api_search():
 
     videos.sort(key=lambda v: v["view_count"], reverse=True)
 
-    # 全量排序时，如果有多页，标记 nextPageToken
-    # 注意：分页搜索会打乱排序，所以这里用全量一次性返回50，翻页时前端再拉新一批
     return jsonify({
         "videos": videos,
         "nextPageToken": data.get("nextPageToken", ""),
@@ -110,7 +286,6 @@ def api_search():
 
 
 def _fetch_comments(vid: str, min_likes: int = 0) -> list[dict]:
-    """拉取评论，支持最低点赞过滤"""
     try:
         cdata = _youtube_get(
             f"commentThreads?part=snippet&videoId={vid}&maxResults=150&order=relevance"
@@ -134,12 +309,10 @@ def _fetch_comments(vid: str, min_likes: int = 0) -> list[dict]:
 
 @app.route("/api/preview", methods=["POST"])
 def api_preview():
-    """评论预览"""
     data = request.get_json()
     video_ids = data.get("video_ids", [])
     if not video_ids:
         return jsonify({"error": "参数错误"}), 400
-
     comments = _fetch_comments(video_ids[0])
     return jsonify({"comments": comments, "total": len(comments)})
 
@@ -168,8 +341,8 @@ def api_export():
         info = items[0]
         title = info["snippet"]["title"]
         channel = info["snippet"]["channelTitle"]
-        views = int(info.get("statistics", {}).get("viewCount", 0))
         pub = info["snippet"]["publishedAt"]
+        views = info["statistics"].get("viewCount", 0)
         url = f"https://www.youtube.com/watch?v={vid}"
 
         comments = _fetch_comments(vid, min_likes=min_likes)
@@ -188,7 +361,6 @@ def api_export():
     if not all_rows:
         return jsonify({"error": "所选视频暂无符合条件的评论"}), 404
 
-    # 生成文件名
     first_title = all_rows[0][4][:40].replace(" ", "-").replace("/", "-")
     safe_title = "".join(c if c.isalnum() or c in "-_" else "" for c in first_title)[:40]
     date_str = datetime.now().strftime("%Y-%m-%d")
@@ -236,9 +408,7 @@ def _export_xlsx(rows, filename, stats):
     header_font = Font(bold=True, color="FFFFFF", size=11)
     header_fill = PatternFill(start_color="1a1a1a", end_color="1a1a1a", fill_type="solid")
     header_align = Alignment(horizontal="left", vertical="center")
-    thin_border = Border(
-        bottom=Side(style="thin", color="E0E0E0")
-    )
+    thin_border = Border(bottom=Side(style="thin", color="E0E0E0"))
 
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=h)
@@ -299,22 +469,18 @@ def _export_json(rows, filename, stats):
 
 @app.route("/api/export/stats", methods=["POST"])
 def api_export_stats():
-    """导出前统计预览"""
     data = request.get_json()
     video_ids = data.get("video_ids", [])
     min_likes = int(data.get("min_likes", 0))
-
     total_comments = 0
     total_likes = 0
     video_count = 0
-
     for vid in video_ids:
         comments = _fetch_comments(vid, min_likes=min_likes)
         if comments:
             video_count += 1
             total_comments += len(comments)
             total_likes += sum(c["likes"] for c in comments)
-
     return jsonify({
         "video_count": video_count,
         "total_comments": total_comments,
