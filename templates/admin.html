@@ -171,6 +171,14 @@ function renewCode(code) {
   }).then(r=>r.json()).then(d=>{loadCodes();showToast("已续期 "+days+" 天")});
 }
 
+function resetCode(code) {
+  if(!confirm("确定重置激活码 "+code+"？重置后可重新使用。"))return;
+  fetch("/api/admin/codes/reset",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({code:code})
+  }).then(r=>r.json()).then(d=>{loadCodes();showToast("已重置")});
+}
+
 function showToast(m){var t=document.createElement("div");t.className="toast";t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove()},2000)}
 </script>
 </body>

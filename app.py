@@ -221,6 +221,21 @@ def admin_update_code():
     return jsonify({"ok": True})
 
 
+
+@app.route("/api/admin/codes/reset", methods=["POST"])
+def admin_reset_code():
+    data = request.get_json()
+    code = (data.get("code") or "").strip().upper()
+
+    def _reset(codes):
+        if code in codes:
+            codes[code]["used"] = False
+        return codes
+
+    _update_codes(_reset)
+    return jsonify({"ok": True})
+
+
 # ═══════════════════════════════════════
 #  主页面
 # ═══════════════════════════════════════
