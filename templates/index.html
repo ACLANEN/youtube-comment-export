@@ -486,10 +486,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
   var input = document.getElementById("actInput");
   var error = document.getElementById("actError");
 
-  if (sessionStorage.getItem("act_verified") === "1") {
-    overlay.classList.add("hidden");
-    return;
-  }
+  overlay.classList.add("hidden");
 
   input.addEventListener("keydown", function(e) {
     if (e.key === "Enter") verifyCode();
