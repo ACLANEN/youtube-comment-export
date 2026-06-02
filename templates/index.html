@@ -372,7 +372,6 @@ p, li { font-size: 16px; color: var(--text-secondary); }
   </div>
 </section>
 
-<!-- ====== Data Preview ====== -->
 <section class="section">
   <div class="container">
     <h2 style="text-align:center">导出数据格式</h2>
@@ -474,7 +473,13 @@ p, li { font-size: 16px; color: var(--text-secondary); }
     <span class="badge" id="selectedCount">0</span>
     <span class="label">个视频已选</span>
     <span class="stat-item" id="exportStats" style="display:none"></span>
-    <button class="btn btn-primary" id="exportActionBtn" onclick="doExport()" disabled>⬇ 导出</button>
+    <select id="minLikes" style="width:auto;font-size:12px" onchange="updateUI()">
+            <option value="0">全部评论</option>
+            <option value="5">≥5 赞</option>
+            <option value="10">≥10 赞</option>
+            <option value="50">≥50 赞</option>
+          </select>
+          <button class="btn btn-primary" id="exportActionBtn" onclick="doExport()" disabled>⬇ 导出</button>
   </div>
 
 </div>
@@ -520,7 +525,6 @@ function verifyCode() {
 
 <script>
 let videos = [];
-let previewCache = {};
 let nextPageToken = "";
 let currentKeyword = "";
 
@@ -559,7 +563,6 @@ async function doSearch() {
     nextPageToken = data.nextPageToken || "";
     currentKeyword = kw;
     document.getElementById("sortBy").value = "views_desc";
-    previewCache = {};
     renderCards();
     // 标题精准模式：过滤不包含关键词的视频
     if (searchMode === "title") {
@@ -583,7 +586,7 @@ function renderCards(append = false) {
     const delay = append ? 0.06 : (idx * 0.12);
     return `
     <div class="video-card" id="card-${i}">
-      <div class="card-main" onclick="togglePreview(${i}, event)">
+      <div class="card-main" >
         <div class="cb-wrap" onclick="event.stopPropagation()">
           <input type="checkbox" value="${idx}" ${v.comment_count===0?'disabled':''} onchange="onCheck(${i}, this.checked)">
         </div>
