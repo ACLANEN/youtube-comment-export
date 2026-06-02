@@ -539,7 +539,6 @@ function switchMode(mode) {
   document.getElementById("tabComments").classList.toggle("active", mode === "comments");
   document.getElementById("filterComments").style.display = mode === "comments" ? "flex" : "none";
 
-  previewCache = {};
   document.querySelectorAll(".video-card.expanded").forEach(function(c) { c.classList.remove("expanded"); });
   document.querySelectorAll(".comment-preview").forEach(function(c) { c.innerHTML = ""; });
 }
