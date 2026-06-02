@@ -21,7 +21,7 @@ BASE_URL = os.getenv("YOUTUBE_BASE_URL", "https://www.googleapis.com/youtube/v3"
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 
 # ── 激活码存储 ──
-CODES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "codes.json")
+CODES_FILE = os.path.join("/data", "codes.json")
 _codes_lock = threading.Lock()
 
 def _load_codes():
@@ -46,7 +46,9 @@ def _update_codes(fn):
         _save_codes(codes)
         return codes
 
-# 启动时初始化（如果文件不存在则创建）
+# 确保 /data 目录存在
+os.makedirs("/data", exist_ok=True)
+# 启动时初始化
 if not os.path.exists(CODES_FILE):
     _save_codes({})
 
