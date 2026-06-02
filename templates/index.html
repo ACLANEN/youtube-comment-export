@@ -112,7 +112,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .results-header .select-all:hover { text-decoration: underline; }
 
 /* ====== Filter Row ====== */
-.filter-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 10px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; }
+.filter-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; padding: 10px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; flex-wrap: wrap; }
 .filter-row label { color: var(--text-tertiary); }
 .filter-row select, .filter-row input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: var(--radius-sm); font-size: 13px; outline: none; }
 .filter-row select:focus, .filter-row input:focus { border-color: var(--accent); }
@@ -330,7 +330,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
         <div class="filter-row" id="filterComments">
 
           <label>排序</label>
-          <select id="sortBy" onchange="applySort()">
+          <select id="sortBy" onchange="applyFilters()">
             <option value="views_desc">播放量 ↓</option>
             <option value="views_asc">播放量 ↑</option>
             <option value="comments_desc">评论数 ↓</option>
@@ -338,14 +338,25 @@ p, li { font-size: 16px; color: var(--text-secondary); }
             <option value="date_desc">最新发布</option>
             <option value="date_asc">最早发布</option>
           </select>
-          <label style="margin-left:12px">最低点赞</label>
-          <select id="minLikes" onchange="updateUI()">
-            <option value="0">全部 (0)</option>
-            <option value="5">≥ 5</option>
-            <option value="10">≥ 10</option>
-            <option value="50">≥ 50</option>
-          </select>
-          <label style="margin-left:12px">导出格式</label>
+
+          <label style="margin-left:8px">播放量</label>
+          <input type="number" id="viewsMin" placeholder="最低" onchange="applyFilters()" style="width:70px">
+          <span style="color:var(--text-tertiary)">—</span>
+          <input type="number" id="viewsMax" placeholder="最高" onchange="applyFilters()" style="width:70px">
+
+          <label style="margin-left:8px">评论数</label>
+          <input type="number" id="cmtMin" placeholder="最低" onchange="applyFilters()" style="width:70px">
+          <span style="color:var(--text-tertiary)">—</span>
+          <input type="number" id="cmtMax" placeholder="最高" onchange="applyFilters()" style="width:70px">
+
+          <label style="margin-left:8px">日期</label>
+          <input type="date" id="dateFrom" onchange="applyFilters()" style="width:120px;font-size:12px">
+          <span style="color:var(--text-tertiary);font-size:12px">—</span>
+          <input type="date" id="dateTo" onchange="applyFilters()" style="width:120px;font-size:12px">
+
+          <button class="btn" style="padding:5px 12px;font-size:12px;margin-left:8px;background:var(--surface-raised);border:1px solid var(--border);color:var(--text-secondary);border-radius:var(--radius-sm);cursor:pointer" onclick="clearFilters()">清除</button>
+
+          <label style="margin-left:12px">导出</label>
           <select id="exportFormat">
             <option value="csv">CSV</option>
             <option value="xlsx">Excel (.xlsx)</option>
@@ -534,7 +545,8 @@ async function doSearch() {
       });
     }
     setState(videos.length ? "results" : "empty");
-    document.getElementById("resultCount").textContent = videos.length ? `${videos.length} 个视频 · 按播放量降序` : "";
+    var fv = getFilteredVideos();
+    document.getElementById("resultCount").textContent = fv.length ? `${fv.length}/${videos.length} 个视频` : "";
     document.getElementById("searchHints").style.display = videos.length ? "none" : "flex";
   } catch (e) { setState("empty"); }
 }
@@ -542,7 +554,6 @@ async function doSearch() {
 function renderCards(append = false) {
   const container = document.getElementById("videoList");
   const startIdx = append ? container.children.length : 0;
-  const baseDelay = append ? 0 : 0;
   const newHTML = videos.slice(startIdx).map((v, i) => {
     const idx = startIdx + i;
     const delay = append ? 0.06 : (idx * 0.12);
@@ -603,7 +614,7 @@ async function updateUI() {
   const count = checked.length;
   document.getElementById("selectedCount").textContent = count;
   document.getElementById("exportBar").classList.toggle("visible", count > 0);
-  document.getElementById("selectAllBtn").style.display = videos.length ? "inline" : "none";
+  document.getElementById("selectAllBtn").style.display = getFilteredVideos().length ? "inline" : "none";
   
   document.getElementById("loadMoreWrap").classList.toggle("active", !!nextPageToken);
 
@@ -679,6 +690,11 @@ function setState(s) {
   if (s !== "results") { currentMode = "comments"; }
 }
 
+function applyFilters() {
+  applySort();
+  renderCards();
+}
+
 function applySort() {
   var sort = document.getElementById("sortBy").value;
   if (sort === "views_desc") videos.sort(function(a,b) { return b.view_count - a.view_count; });
@@ -687,7 +703,36 @@ function applySort() {
   else if (sort === "comments_asc") videos.sort(function(a,b) { return a.comment_count - b.comment_count; });
   else if (sort === "date_desc") videos.sort(function(a,b) { return new Date(b.published_at) - new Date(a.published_at); });
   else if (sort === "date_asc") videos.sort(function(a,b) { return new Date(a.published_at) - new Date(b.published_at); });
-  renderCards();
+}
+
+function getFilteredVideos() {
+  var vMin = parseInt(document.getElementById("viewsMin").value) || 0;
+  var vMax = parseInt(document.getElementById("viewsMax").value) || Infinity;
+  var cMin = parseInt(document.getElementById("cmtMin").value) || 0;
+  var cMax = parseInt(document.getElementById("cmtMax").value) || Infinity;
+  var dFrom = document.getElementById("dateFrom").value;
+  var dTo = document.getElementById("dateTo").value;
+
+  return videos.filter(function(v) {
+    if (v.view_count < vMin) return false;
+    if (v.view_count > vMax) return false;
+    if (v.comment_count < cMin) return false;
+    if (v.comment_count > cMax) return false;
+    if (dFrom && v.published_at < dFrom) return false;
+    if (dTo && v.published_at > dTo + "T23:59:59Z") return false;
+    return true;
+  });
+}
+
+function clearFilters() {
+  document.getElementById("viewsMin").value = "";
+  document.getElementById("viewsMax").value = "";
+  document.getElementById("cmtMin").value = "";
+  document.getElementById("cmtMax").value = "";
+  document.getElementById("dateFrom").value = "";
+  document.getElementById("dateTo").value = "";
+  document.getElementById("sortBy").value = "views_desc";
+  applyFilters();
 }
 
 async function loadMore() {
@@ -715,7 +760,9 @@ async function loadMore() {
     else if (sort === "date_desc") videos.sort(function(a,b) { return new Date(b.published_at) - new Date(a.published_at); });
     else if (sort === "date_asc") videos.sort(function(a,b) { return new Date(a.published_at) - new Date(b.published_at); });
     renderCards();
-    document.getElementById("resultCount").textContent = `${videos.length} 个视频 · 按播放量降序`;
+    applyVisibilityFilter();
+    var fvl = getFilteredVideos();
+    document.getElementById("resultCount").textContent = `${fvl.length}/${videos.length} 个视频`;
   } catch (e) {} finally {
     btn.disabled = false; btn.textContent = "加载更多";
     if (!nextPageToken) { document.getElementById("loadMoreWrap").classList.remove("active"); }
