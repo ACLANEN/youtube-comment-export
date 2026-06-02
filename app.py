@@ -312,25 +312,32 @@ def api_search():
     })
 
 
-def _fetch_comments(vid: str, min_likes: int = 0) -> list[dict]:
-    try:
-        cdata = _youtube_get(
-            f"commentThreads?part=snippet&videoId={vid}&maxResults=150&order=relevance"
-        )
-    except Exception:
-        return []
+def _fetch_comments(vid: str, min_likes: int = 0, max_pages: int = 5) -> list[dict]:
+    """拉取评论，支持翻页（每页100条，最多5页=500条）"""
     comments = []
-    for item in cdata.get("items", []):
-        top = item["snippet"]["topLevelComment"]["snippet"]
-        likes = top.get("likeCount", 0)
-        if likes < min_likes:
-            continue
-        comments.append({
-            "author": top["authorDisplayName"],
-            "text": top["textDisplay"],
-            "likes": likes,
-            "published_at": top["publishedAt"],
-        })
+    page_token = ""
+    for _ in range(max_pages):
+        try:
+            path = f"commentThreads?part=snippet&videoId={vid}&maxResults=100&order=relevance"
+            if page_token:
+                path += f"&pageToken={page_token}"
+            cdata = _youtube_get(path)
+        except Exception:
+            break
+        for item in cdata.get("items", []):
+            top = item["snippet"]["topLevelComment"]["snippet"]
+            likes = top.get("likeCount", 0)
+            if likes < min_likes:
+                continue
+            comments.append({
+                "author": top["authorDisplayName"],
+                "text": top["textDisplay"],
+                "likes": likes,
+                "published_at": top["publishedAt"],
+            })
+        page_token = cdata.get("nextPageToken", "")
+        if not page_token:
+            break
     return comments
 
 
