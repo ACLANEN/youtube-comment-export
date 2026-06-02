@@ -602,11 +602,33 @@ async function togglePreview(i, event) {
 function onCheck(i, checked) { document.getElementById("card-" + i).classList.toggle("selected", checked); updateUI(); }
 
 function toggleAll() {
-  const cbs = document.querySelectorAll("#videoList input[type='checkbox']:not(:disabled)");
-  const allChecked = [...cbs].every(cb => cb.checked);
-  cbs.forEach(cb => { cb.checked = !allChecked; });
-  document.querySelectorAll(".video-card").forEach(c => { const cb = c.querySelector('input[type="checkbox"]'); c.classList.toggle("selected", cb && cb.checked); });
+  var cbs = document.querySelectorAll("#videoList input[type='checkbox']:not(:disabled)");
+  var visibleCards = document.querySelectorAll(".video-card:not([style*='display: none'])");
+  var allChecked = true;
+  visibleCards.forEach(function(c) {
+    var cb = c.querySelector('input[type="checkbox"]');
+    if (cb && !cb.checked && !cb.disabled) allChecked = false;
+  });
+  cbs.forEach(function(cb) { cb.checked = !allChecked; });
+  visibleCards.forEach(function(c) {
+    var cb = c.querySelector('input[type="checkbox"]');
+    c.classList.toggle("selected", cb && cb.checked);
+  });
+  updateSelectAllLabel();
   updateUI();
+}
+
+function updateSelectAllLabel() {
+  var visibleCards = document.querySelectorAll(".video-card:not([style*='display: none'])");
+  var checked = document.querySelectorAll("#videoList input[type='checkbox']:checked:not(:disabled)");
+  var btn = document.getElementById("selectAllBtn");
+  if (checked.length === 0 || checked.length < visibleCards.length) {
+    btn.textContent = "全选";
+    btn.style.color = "";
+  } else {
+    btn.textContent = "取消全选";
+    btn.style.color = "var(--accent)";
+  }
 }
 
 async function updateUI() {
@@ -615,6 +637,7 @@ async function updateUI() {
   document.getElementById("selectedCount").textContent = count;
   document.getElementById("exportBar").classList.toggle("visible", count > 0);
   document.getElementById("selectAllBtn").style.display = getFilteredVideos().length ? "inline" : "none";
+  updateSelectAllLabel();
   
   document.getElementById("loadMoreWrap").classList.toggle("active", !!nextPageToken);
 
@@ -693,6 +716,7 @@ function setState(s) {
 function applyFilters() {
   applySort();
   renderCards();
+  updateSelectAllLabel();
 }
 
 function applySort() {
