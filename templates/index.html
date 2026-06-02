@@ -169,14 +169,13 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 
 /* ====== Export Bar ====== */
 .export-bar {
-  position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
-  display: none; align-items: center; gap: 16px;
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
   background: var(--surface-raised); border: 1px solid var(--border-hover);
   border-radius: var(--radius-lg); padding: 14px 24px;
   box-shadow: 0 4px 24px rgba(0,0,0,.5);
   z-index: 100;
 }
-.export-bar.visible { display: flex; flex-wrap: wrap; }
 .export-bar .badge { background: var(--accent); color: #fff; padding: 2px 10px; border-radius: 4px; font-size: 13px; font-weight: 600; }
 .export-bar .label { color: var(--text-secondary); font-size: 13px; }
 .export-bar .stat-item { font-size: 12px; color: var(--text-tertiary); }
@@ -474,7 +473,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
     <span class="badge" id="selectedCount">0</span>
     <span class="label">个视频已选</span>
     <span class="stat-item" id="exportStats" style="display:none"></span>
-    <button class="btn btn-primary" id="exportActionBtn" onclick="doExport()">⬇ 导出</button>
+    <button class="btn btn-primary" id="exportActionBtn" onclick="doExport()" disabled>⬇ 导出</button>
   </div>
 
 </div>
@@ -662,7 +661,8 @@ async function updateUI() {
   const checked = document.querySelectorAll("#videoList input[type='checkbox']:checked");
   const count = checked.length;
   document.getElementById("selectedCount").textContent = count;
-  document.getElementById("exportBar").classList.toggle("visible", count > 0);
+  document.getElementById("exportActionBtn").disabled = (count === 0);
+  document.getElementById("exportActionBtn").style.opacity = count === 0 ? "0.4" : "1";
   document.getElementById("selectAllBtn").style.display = getFilteredVideos().length ? "inline" : "none";
   updateSelectAllLabel();
   
@@ -731,7 +731,7 @@ function doExport() {
 function setState(s) {
   document.getElementById("loading").classList.toggle("active", s === "loading");
   document.getElementById("resultsArea").classList.toggle("active", s === "results");
-  document.getElementById("exportBar").classList.toggle("visible", false);
+  
   document.getElementById("selectAllBtn").style.display = "none";
   document.getElementById("searchHints").style.display = s === "empty" ? "flex" : "none";
   // 重置卡片动画
