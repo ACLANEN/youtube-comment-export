@@ -614,17 +614,6 @@ function renderCards(append = false) {
   updateUI();
 }
 
-async function togglePreview(i, event) {
-  if (event.target.tagName === 'INPUT') return;
-  const card = document.getElementById("card-" + i);
-  const wasExpanded = card.classList.contains("expanded");
-  document.querySelectorAll(".video-card.expanded").forEach(c => c.classList.remove("expanded"));
-  if (!wasExpanded) {
-    card.classList.add("expanded");
-    if (!previewCache[i]) { await loadPreview(i); }
-  }
-}
-
 
 function onCheck(i, checked) { document.getElementById("card-" + i).classList.toggle("selected", checked); updateUI(); }
 
