@@ -691,7 +691,7 @@ function renderCards() {
   const newHTML = pageVideos.map((v, i) => {
     const globalIdx = allVideos.indexOf(v);
     return `
-    <div class="video-card" id="card-${globalIdx}" style="animation-delay:${i*0.04}s">
+    <div class="video-card" id="card-${globalIdx}" style="animation-delay:${i*0.04}s" onclick="toggleCard(${globalIdx}, event)">
       <div class="card-top">
         <div class="cb-overlay" onclick="event.stopPropagation()">
           <input type="checkbox" value="${globalIdx}" onchange="onCheck(${globalIdx}, this.checked)">
@@ -721,6 +721,12 @@ function renderCards() {
   updateUI();
 }
 
+function toggleCard(i, e) {
+  // Don't toggle if clicking a link
+  if (e.target.closest("a")) return;
+  var cb = document.querySelector("#card-" + i + " input[type='checkbox']");
+  if (cb) { cb.checked = !cb.checked; onCheck(i, cb.checked); }
+}
 function onCheck(i, checked) { document.getElementById("card-" + i).classList.toggle("selected", checked); updateUI(); }
 
 function toggleAll() {
