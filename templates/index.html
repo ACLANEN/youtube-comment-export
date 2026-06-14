@@ -760,6 +760,7 @@ async function updateUI() {
   document.getElementById("exportActionBtn").disabled = (count === 0);
   document.getElementById("exportActionBtn").style.opacity = count === 0 ? "0.4" : "1";
   document.getElementById("selectAllBtn").style.display = getFilteredVideos().length ? "inline" : "none";
+  document.getElementById("exportBar").style.display = count > 0 ? "" : "none";
   updateSelectAllLabel();
   
   updateSelectAllLabel();
@@ -874,7 +875,6 @@ function setState(s) {
   // 重置卡片动画
   document.querySelectorAll(".video-card").forEach(c => { c.style.animation = "none"; c.offsetHeight; c.style.animation = ""; });
   document.getElementById("paginationWrap").classList.toggle("active", s === "results");
-  document.getElementById("exportBar").style.display = s === "results" ? "" : "none";
   if (s === "results") onStructureChange();
 }
 
