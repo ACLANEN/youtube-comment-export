@@ -194,12 +194,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .comment-preview .more-hint { text-align: center; color: #3d3d3d; font-size: 11px; padding: 10px 0; }
 
 /* ====== Load More ====== */
-.pagination-wrap { display: none; justify-content: center; align-items: center; gap: 4px; padding: 24px 0; flex-wrap: wrap; }
-.pagination-wrap.active { display: flex; }
-.page-btn { min-width: 36px; height: 36px; background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; transition: all .15s; display: flex; align-items: center; justify-content: center; font-family: inherit; }
-.page-btn:hover { border-color: var(--accent); color: var(--accent); }
-.page-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-.page-btn:disabled { opacity: .3; cursor: not-allowed; }
+
 .page-info { font-size: 12px; color: var(--text-tertiary); margin: 0 8px; }
 
 /* ====== Loading ====== */
@@ -404,7 +399,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
         <div class="video-list" id="videoList"></div>
         <div class="pagination-wrap" id="paginationWrap">
           <button class="page-btn" id="prevPage" onclick="goPage(-1)" disabled>‹</button>
-          <span id="pageNumbers"></span>
+          <span id="pageNumbers" style="display:inline-flex;gap:4px;"></span>
           <button class="page-btn" id="nextPage" onclick="goPage(1)" disabled>›</button>
           <span class="page-info" id="pageInfo"></span>
           <button class="page-btn" id="loadMoreApi" onclick="loadMoreApi()" style="margin-left:8px;">加载更多</button>
@@ -1052,7 +1047,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
         <div class="video-list" id="videoList"></div>
         <div class="pagination-wrap" id="paginationWrap">
           <button class="page-btn" id="prevPage" onclick="goPage(-1)" disabled>‹</button>
-          <span id="pageNumbers"></span>
+          <span id="pageNumbers" style="display:inline-flex;gap:4px;"></span>
           <button class="page-btn" id="nextPage" onclick="goPage(1)" disabled>›</button>
           <span class="page-info" id="pageInfo"></span>
           <button class="page-btn" id="loadMoreApi" onclick="loadMoreApi()" style="margin-left:8px;">加载更多</button>
