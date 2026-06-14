@@ -25,6 +25,7 @@
   --card-bg: rgba(20,20,28,0.4);
   --input-bg: rgba(12,12,18,0.6);
   --export-bg: rgba(20,20,28,0.55);
+  --footer-bg: #0c0c10;
   --glass-bg: rgba(20,20,28,0.35);
   --body-gradient: radial-gradient(ellipse at 50% 0%, rgba(94,143,238,0.06) 0%, transparent 70%);
 }
@@ -42,6 +43,7 @@ body.light {
   --card-bg: rgba(255,255,255,0.55);
   --input-bg: rgba(255,255,255,0.7);
   --export-bg: rgba(255,255,255,0.7);
+  --footer-bg: #e8e8ed;
   --glass-bg: rgba(255,255,255,0.5);
   --body-gradient: radial-gradient(ellipse at 50% 0%, rgba(59,111,212,0.04) 0%, transparent 70%);
 }
@@ -61,7 +63,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .section { padding: 80px 0; }
 
 /* ====== Nav ====== */
-.nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(8,8,10,0.55); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)); border-bottom: 1px solid var(--border); }
+.nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: var(--nav-bg); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); border-bottom: 1px solid var(--border); }
 .nav .container { display: flex; align-items: center; justify-content: space-between; height: 56px; }
 .nav .logo { font-weight: 700; font-size: 15px; color: var(--text); letter-spacing: -0.3px; text-shadow: 0 0 20px rgba(94,143,238,0.15); }
 .nav .logo span { color: var(--accent); font-weight: 600; }
@@ -145,7 +147,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .export-steps .step.done { color: var(--green); }
 
 /* ====== Export Guide ====== */
-#exportGuide { font-size: 11px; color: #4d4d4d; margin-top: 4px; line-height: 1.5; }
+#exportGuide { font-size: 11px; color: var(--text-tertiary); margin-top: 4px; line-height: 1.5; }
 #exportGuide span { color: var(--accent); }
 .export-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
@@ -258,10 +260,10 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .workflow-arrow { color: var(--border-hover); font-size: 20px; padding: 0 8px; margin-bottom: 28px; }
 
 /* ====== Footer ====== */
-.footer { border-top: 1px solid var(--border); padding: 48px 0; text-align: center; background: rgba(8,8,10,0.5); }
+.footer { border-top: 1px solid var(--border); padding: 48px 0; text-align: center; background: var(--footer-bg); }
 .footer .text-sm { font-size: 13px; }
 .footer .brand { color: var(--text); font-weight: 600; }
-.footer .divider { margin: 0 10px; color: #2d2d2d; }
+.footer .divider { margin: 0 10px; color: var(--text-tertiary); opacity: .4; }
 
 
 /* ====== Theme Toggle ====== */
@@ -370,7 +372,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
   <div class="container">
     <h2 style="text-align:center">开始调研</h2>
     <p style="text-align:center;color:var(--text-tertiary);margin-bottom:8px;font-size:15px;">输入关键词，按播放量排序，选择视频后导出评论</p>
-    <p style="text-align:center;color:#4d4d4d;margin-bottom:16px;font-size:12px;">📌 每次搜索最多 50 个视频 · 每个视频最多导出 500 条评论 · 评论数为顶层评论（不含回复），可能与 YouTube 显示总数有差异 · 支持评论/字幕/合并导出</p>
+    <p style="text-align:center;color:var(--text-tertiary);margin-bottom:16px;font-size:12px;">📌 每次搜索最多 50 个视频 · 每个视频最多导出 500 条评论 · 评论数为顶层评论（不含回复），可能与 YouTube 显示总数有差异 · 支持评论/字幕/合并导出</p>
 
     <div class="search-card">
       <div class="search-row">
@@ -545,7 +547,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 <footer class="footer">
   <div class="container">
     <p class="text-sm"><span class="brand">Comment Research</span> <span class="divider">·</span> Powered by YouTube</p>
-    <p class="text-sm" style="margin-top:8px;color:#4d4d4d;">真实评论 > AI 总结  ·  完整数据 > 预设结论  ·  判断权属于使用者</p>
+    <p class="text-sm" style="margin-top:8px;color:var(--text-tertiary);">真实评论 > AI 总结  ·  完整数据 > 预设结论  ·  判断权属于使用者</p>
   </div>
 </footer>
 
