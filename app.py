@@ -554,6 +554,7 @@ def api_search():
             "view_count": int(s.get("viewCount", 0)),
             "comment_count": int(s.get("commentCount", 0)),
             "duration": _format_duration(cd.get("duration", "")),
+            "has_captions": cd.get("caption", "false") == "true",
         }
 
     for v in videos:
@@ -561,6 +562,7 @@ def api_search():
         v["view_count"] = st.get("view_count", 0)
         v["comment_count"] = st.get("comment_count", 0)
         v["duration"] = st.get("duration", "")
+        v["has_captions"] = st.get("has_captions", False)
 
     videos.sort(key=lambda v: v["view_count"], reverse=True)
 

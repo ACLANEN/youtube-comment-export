@@ -175,11 +175,13 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .comment-preview .more-hint { text-align: center; color: #3d3d3d; font-size: 11px; padding: 10px 0; }
 
 /* ====== Load More ====== */
-.load-more-wrap { display: none; text-align: center; padding: 24px 0; }
-.load-more-wrap.active { display: block; }
-.load-more-btn { padding: 12px 48px; background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); border-radius: var(--radius); font-size: 14px; cursor: pointer; transition: all .15s; }
-.load-more-btn:hover { border-color: var(--accent); color: var(--accent); }
-.load-more-btn:disabled { opacity: .4; cursor: not-allowed; }
+.pagination-wrap { display: none; justify-content: center; align-items: center; gap: 4px; padding: 24px 0; flex-wrap: wrap; }
+.pagination-wrap.active { display: flex; }
+.page-btn { min-width: 36px; height: 36px; background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; transition: all .15s; display: flex; align-items: center; justify-content: center; font-family: inherit; }
+.page-btn:hover { border-color: var(--accent); color: var(--accent); }
+.page-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.page-btn:disabled { opacity: .3; cursor: not-allowed; }
+.page-info { font-size: 12px; color: var(--text-tertiary); margin: 0 8px; }
 
 /* ====== Loading ====== */
 .loading-block { display: none; text-align: center; padding: 48px 0; }
@@ -248,9 +250,8 @@ p, li { font-size: 16px; color: var(--text-secondary); }
   .section { padding: 48px 0; }
   .container { padding: 0 20px; }
   .feature-grid { grid-template-columns: 1fr; }
-  .card-main { padding: 12px 14px; gap: 10px; }
-  .card-main .thumb { width: 80px; height: 45px; }
-  .card-main .info .title { font-size: 13px; }
+  .video-list { grid-template-columns: 1fr; }
+  .video-card .card-top .thumb-link img { height: 180px; }
   .search-row { flex-direction: column; }
   .workflow-steps { flex-direction: column; }
   .workflow-arrow { transform: rotate(90deg); margin: 4px 0; }
@@ -380,8 +381,12 @@ p, li { font-size: 16px; color: var(--text-secondary); }
         </div>>
 
         <div class="video-list" id="videoList"></div>
-        <div class="load-more-wrap" id="loadMoreWrap">
-          <button class="load-more-btn" id="loadMoreBtn" onclick="loadMore()">加载更多</button>
+        <div class="pagination-wrap" id="paginationWrap">
+          <button class="page-btn" id="prevPage" onclick="goPage(-1)" disabled>‹</button>
+          <span id="pageNumbers"></span>
+          <button class="page-btn" id="nextPage" onclick="goPage(1)" disabled>›</button>
+          <span class="page-info" id="pageInfo"></span>
+          <button class="page-btn" id="loadMoreApi" onclick="loadMoreApi()" style="margin-left:8px;">加载更多</button>
         </div>
       </div>
     </div>
@@ -568,6 +573,11 @@ async function quickSearch(kw) {
 
 
 
+var PAGE_SIZE = 20;
+var allVideos = [];
+var currentPage = 0;
+var totalApiPages = 1;
+
 var searchMode = "broad";
 function setSearchMode(mode, btn) {
   searchMode = mode;
@@ -583,86 +593,84 @@ async function doSearch() {
     const resp = await fetch(`/api/search?q=${encodeURIComponent(kw)}`);
     const data = await resp.json();
     if (data.error) { setState("empty"); return; }
-    videos = data.videos || [];
+    allVideos = data.videos || [];
     nextPageToken = data.nextPageToken || "";
     currentKeyword = kw;
+    currentPage = 0;
+    totalApiPages = 1;
     document.getElementById("sortBy").value = "views_desc";
-    renderCards();
-    // 标题精准模式：过滤不包含关键词的视频
     if (searchMode === "title") {
       var kwLower = kw.toLowerCase();
-      videos = videos.filter(function(v) {
+      allVideos = allVideos.filter(function(v) {
         return v.title.toLowerCase().indexOf(kwLower) !== -1;
       });
     }
-    setState(videos.length ? "results" : "empty");
+    setState(allVideos.length ? "results" : "empty");
     var fv = getFilteredVideos();
-    document.getElementById("resultCount").textContent = fv.length ? `${fv.length}/${videos.length} 个视频` : "";
-    document.getElementById("searchHints").style.display = videos.length ? "none" : "flex";
+    document.getElementById("resultCount").textContent = fv.length ? `${fv.length}/${allVideos.length} 个视频` : "";
+    document.getElementById("searchHints").style.display = allVideos.length ? "none" : "flex";
+    applySort();
+    renderCards();
   } catch (e) { setState("empty"); }
 }
 
-function renderCards(append = false) {
+function renderCards() {
   const container = document.getElementById("videoList");
-  const startIdx = append ? container.children.length : 0;
-  const newHTML = videos.slice(startIdx).map((v, i) => {
-    const idx = startIdx + i;
-    const delay = append ? 0.06 : (idx * 0.12);
+  const start = currentPage * PAGE_SIZE;
+  const pageVideos = allVideos.slice(start, start + PAGE_SIZE);
+  
+  const newHTML = pageVideos.map((v, i) => {
+    const globalIdx = allVideos.indexOf(v);
     return `
-    <div class="video-card" id="card-${i}">
-      <div class="card-main" >
-        <div class="cb-wrap" onclick="event.stopPropagation()">
-          <input type="checkbox" value="${idx}" ${v.comment_count===0?'disabled':''} onchange="onCheck(${i}, this.checked)">
+    <div class="video-card" id="card-${globalIdx}" style="animation-delay:${i*0.03}s">
+      <div class="card-top">
+        <div class="cb-overlay" onclick="event.stopPropagation()">
+          <input type="checkbox" value="${globalIdx}" ${v.comment_count===0?'disabled':''} onchange="onCheck(${globalIdx}, this.checked)">
         </div>
+        ${v.has_captions ? '<span class="cc-badge" title="有字幕">CC</span>' : ''}
         <a class="thumb-link" href="https://www.youtube.com/watch?v=${v.video_id}" target="_blank" title="在 YouTube 打开">
-          <img class="thumb" src="${v.thumbnail}" loading="lazy" onerror="this.style.opacity='0'">
+          <img src="${v.thumbnail}" loading="lazy" onerror="this.style.opacity='0'">
         </a>
-        <div class="info">
-          <a class="title" href="https://www.youtube.com/watch?v=${v.video_id}" target="_blank" title="${esc(v.title)}" style="text-decoration:none;color:var(--text)">${esc(v.title)}</a>
-          <div class="meta">
-            <span>${esc(v.channel)}</span>
-            <span>${v.published_at ? v.published_at.slice(0,10) : ''}</span>
-            ${v.duration ? '<span class="duration">' + v.duration + '</span>' : ''}
-          </div>
+      </div>
+      <div class="card-body">
+        <a class="title" href="https://www.youtube.com/watch?v=${v.video_id}" target="_blank" title="${esc(v.title)}">${esc(v.title)}</a>
+        <div class="meta">
+          <span>${esc(v.channel)}</span>
+          <span>${v.published_at ? v.published_at.slice(0,10) : ''}</span>
+          ${v.duration ? '<span class="duration">' + v.duration + '</span>' : ''}
         </div>
-        <div class="stats">
+        <div class="stats-row">
           <span class="views">${fmt(v.view_count)} 次播放</span>
           <span class="cmts ${v.comment_count===0?'zero':''}">${v.comment_count===0?'暂无评论':fmt(v.comment_count)+' 条评论'}</span>
         </div>
-        <a class="yt-link" href="https://www.youtube.com/watch?v=${v.video_id}" target="_blank" title="在 YouTube 打开">▶ 观看</a>
-        <span class="expand-arrow">▾</span>
-      </div>
-      <div class="comment-preview" id="preview-${i}">
-        <div style="color:var(--text-tertiary);font-size:13px;padding:16px 20px;">加载中...</div>
       </div>
     </div>
-  `;}).join("");
-  if (append) { container.insertAdjacentHTML("beforeend", newHTML); } else { container.innerHTML = newHTML; }
+  \`;}).join("");
+  
+  container.innerHTML = newHTML;
+  updatePagination();
   updateUI();
 }
 
-
-function onCheck(i, checked) { document.getElementById("card-" + i).classList.toggle("selected", checked); updateUI(); }
+function onCheck(i, checked) { var card = document.getElementById("card-" + i); if (card) card.classList.toggle("selected", checked); updateUI(); }
 
 function toggleAll() {
-  var cbs = document.querySelectorAll("#videoList input[type='checkbox']:not(:disabled)");
-  var visibleCards = document.querySelectorAll(".video-card:not([style*='display: none'])");
+  var visibleCards = document.querySelectorAll(".video-card");
   var allChecked = true;
   visibleCards.forEach(function(c) {
     var cb = c.querySelector('input[type="checkbox"]');
     if (cb && !cb.checked && !cb.disabled) allChecked = false;
   });
-  cbs.forEach(function(cb) { cb.checked = !allChecked; });
   visibleCards.forEach(function(c) {
     var cb = c.querySelector('input[type="checkbox"]');
+    if (cb) cb.checked = !allChecked;
     c.classList.toggle("selected", cb && cb.checked);
   });
-  updateSelectAllLabel();
   updateUI();
 }
 
 function updateSelectAllLabel() {
-  var visibleCards = document.querySelectorAll(".video-card:not([style*='display: none'])");
+  var visibleCards = document.querySelectorAll(".video-card");
   var checked = document.querySelectorAll("#videoList input[type='checkbox']:checked:not(:disabled)");
   var btn = document.getElementById("selectAllBtn");
   if (checked.length === 0 || checked.length < visibleCards.length) {
@@ -682,12 +690,10 @@ async function updateUI() {
   document.getElementById("exportActionBtn").style.opacity = count === 0 ? "0.4" : "1";
   document.getElementById("selectAllBtn").style.display = getFilteredVideos().length ? "inline" : "none";
   updateSelectAllLabel();
-  
-  document.getElementById("loadMoreWrap").classList.toggle("active", !!nextPageToken);
 
   // 拉取导出统计
   if (count > 0) {
-    const ids = [...checked].map(cb => videos[cb.value].video_id);
+    const ids = [...checked].map(cb => allVideos[cb.value].video_id);
     const minLikes = parseInt(document.getElementById("minLikes").value);
     try {
       const resp = await fetch("/api/export/stats", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ video_ids: ids, min_likes: minLikes }) });
@@ -735,7 +741,7 @@ function doExport() {
   var checked = document.querySelectorAll("#videoList input[type='checkbox']:checked");
   var ids = [];
   for (var i = 0; i < checked.length; i++) {
-    ids.push(videos[checked[i].value].video_id);
+    ids.push(allVideos[checked[i].value].video_id);
   }
   if (!ids.length) return;
 
@@ -794,25 +800,26 @@ function setState(s) {
   document.getElementById("searchHints").style.display = s === "empty" ? "flex" : "none";
   // 重置卡片动画
   document.querySelectorAll(".video-card").forEach(c => { c.style.animation = "none"; c.offsetHeight; c.style.animation = ""; });
-  document.getElementById("loadMoreWrap").classList.toggle("active", s === "results" && !!nextPageToken);
+  document.getElementById("paginationWrap").classList.toggle("active", s === "results");
   if (s === "results") onStructureChange();
-  if (s !== "results") { }
+  if (s !== "results") { allVideos = []; currentPage = 0; }
 }
 
 function applyFilters() {
   applySort();
+  currentPage = 0;
   renderCards();
   updateSelectAllLabel();
 }
 
 function applySort() {
   var sort = document.getElementById("sortBy").value;
-  if (sort === "views_desc") videos.sort(function(a,b) { return b.view_count - a.view_count; });
-  else if (sort === "views_asc") videos.sort(function(a,b) { return a.view_count - b.view_count; });
-  else if (sort === "comments_desc") videos.sort(function(a,b) { return b.comment_count - a.comment_count; });
-  else if (sort === "comments_asc") videos.sort(function(a,b) { return a.comment_count - b.comment_count; });
-  else if (sort === "date_desc") videos.sort(function(a,b) { return new Date(b.published_at) - new Date(a.published_at); });
-  else if (sort === "date_asc") videos.sort(function(a,b) { return new Date(a.published_at) - new Date(b.published_at); });
+  if (sort === "views_desc") allVideos.sort(function(a,b) { return b.view_count - a.view_count; });
+  else if (sort === "views_asc") allVideos.sort(function(a,b) { return a.view_count - b.view_count; });
+  else if (sort === "comments_desc") allVideos.sort(function(a,b) { return b.comment_count - a.comment_count; });
+  else if (sort === "comments_asc") allVideos.sort(function(a,b) { return a.comment_count - b.comment_count; });
+  else if (sort === "date_desc") allVideos.sort(function(a,b) { return new Date(b.published_at) - new Date(a.published_at); });
+  else if (sort === "date_asc") allVideos.sort(function(a,b) { return new Date(a.published_at) - new Date(b.published_at); });
 }
 
 function getFilteredVideos() {
@@ -823,7 +830,7 @@ function getFilteredVideos() {
   var dFrom = document.getElementById("dateFrom").value;
   var dTo = document.getElementById("dateTo").value;
 
-  return videos.filter(function(v) {
+  return allVideos.filter(function(v) {
     if (v.view_count < vMin) return false;
     if (v.view_count > vMax) return false;
     if (v.comment_count < cMin) return false;
@@ -845,38 +852,72 @@ function clearFilters() {
   applyFilters();
 }
 
-async function loadMore() {
+async function loadMoreApi() {
   if (!nextPageToken || !currentKeyword) return;
-  const btn = document.getElementById("loadMoreBtn");
+  const btn = document.getElementById("loadMoreApi");
   btn.disabled = true; btn.textContent = "加载中...";
   try {
     const resp = await fetch(`/api/search?q=${encodeURIComponent(currentKeyword)}&pageToken=${encodeURIComponent(nextPageToken)}`);
     const data = await resp.json();
     if (data.error) return;
-    const newVideos = data.videos || [];
+    var newVideos = data.videos || [];
     nextPageToken = data.nextPageToken || "";
-    // 标题精准过滤
     if (searchMode === "title") {
-      newVideos = newVideos.filter(function(v) {
-        return v.title.toLowerCase().indexOf(currentKeyword.toLowerCase()) !== -1;
-      });
+      var kwLower = currentKeyword.toLowerCase();
+      newVideos = newVideos.filter(function(v) { return v.title.toLowerCase().indexOf(kwLower) !== -1; });
     }
-    videos = videos.concat(newVideos);
-    var sort = document.getElementById("sortBy").value;
-    if (sort === "views_desc") videos.sort(function(a,b) { return b.view_count - a.view_count; });
-    else if (sort === "views_asc") videos.sort(function(a,b) { return a.view_count - b.view_count; });
-    else if (sort === "comments_desc") videos.sort(function(a,b) { return b.comment_count - a.comment_count; });
-    else if (sort === "comments_asc") videos.sort(function(a,b) { return a.comment_count - b.comment_count; });
-    else if (sort === "date_desc") videos.sort(function(a,b) { return new Date(b.published_at) - new Date(a.published_at); });
-    else if (sort === "date_asc") videos.sort(function(a,b) { return new Date(a.published_at) - new Date(b.published_at); });
+    allVideos = allVideos.concat(newVideos);
+    totalApiPages++;
+    applySort();
+    currentPage = Math.floor((allVideos.length - newVideos.length) / PAGE_SIZE);
     renderCards();
-    applyVisibilityFilter();
     var fvl = getFilteredVideos();
-    document.getElementById("resultCount").textContent = `${fvl.length}/${videos.length} 个视频`;
+    document.getElementById("resultCount").textContent = `${fvl.length}/${allVideos.length} 个视频 · 第${totalApiPages}页API`;
   } catch (e) {} finally {
     btn.disabled = false; btn.textContent = "加载更多";
-    if (!nextPageToken) { document.getElementById("loadMoreWrap").classList.remove("active"); }
+    if (!nextPageToken) { btn.style.display = "none"; }
   }
+}
+
+function updatePagination() {
+  var totalPages = Math.ceil(allVideos.length / PAGE_SIZE);
+  var wrap = document.getElementById("paginationWrap");
+  var prev = document.getElementById("prevPage");
+  var next = document.getElementById("nextPage");
+  var nums = document.getElementById("pageNumbers");
+  var info = document.getElementById("pageInfo");
+  var loadBtn = document.getElementById("loadMoreApi");
+  
+  prev.disabled = currentPage === 0;
+  next.disabled = currentPage >= totalPages - 1;
+  info.textContent = `${currentPage+1} / ${totalPages} 页 · ${allVideos.length} 个视频`;
+  loadBtn.style.display = nextPageToken ? "inline" : "none";
+  
+  // Generate page buttons
+  var html = '';
+  var startP = Math.max(0, currentPage - 2);
+  var endP = Math.min(totalPages, startP + 5);
+  if (endP - startP < 5) startP = Math.max(0, endP - 5);
+  for (var p = startP; p < endP; p++) {
+    html += '<button class="page-btn' + (p === currentPage ? ' active' : '') + '" onclick="goPageAbsolute(' + p + ')">' + (p+1) + '</button>';
+  }
+  nums.innerHTML = html;
+}
+
+function goPage(delta) {
+  var totalPages = Math.ceil(allVideos.length / PAGE_SIZE);
+  var newPage = currentPage + delta;
+  if (newPage >= 0 && newPage < totalPages) {
+    currentPage = newPage;
+    renderCards();
+    document.getElementById("videoList").scrollIntoView({behavior:"smooth"});
+  }
+}
+
+function goPageAbsolute(p) {
+  currentPage = p;
+  renderCards();
+  document.getElementById("videoList").scrollIntoView({behavior:"smooth"});
 }
 
 function fmt(n) { return n >= 10000 ? (n/10000).toFixed(1) + "万" : n.toLocaleString(); }
