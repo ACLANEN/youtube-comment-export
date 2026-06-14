@@ -247,45 +247,80 @@ def admin_reset_code():
 # ═══════════════════════════════════════
 
 def _extract_captions(video_id):
-    """字幕提取：yt-dlp 优先，timedtext API 兜底"""
+    """字幕提取：youtube_transcript_api 优先 → yt-dlp → timedtext API"""
     import html as html_mod
-
-    # === 方案 A: yt-dlp 下载字幕 ===
-    ydl_opts = {
-        'skip_download': True,
-        'writesubtitles': True,
-        'writeautomaticsub': True,
-        'subtitleslangs': ['en'],
-        'subtitlesformat': 'ttml',
-        'outtmpl': {'default': f'/tmp/ytdl_{video_id}.%(ext)s'},
-        'quiet': True,
-        'no_warnings': True,
-    }
-    if CAPTION_PROXY:
-        ydl_opts['proxy'] = CAPTION_PROXY
 
     segments = None
     lang = "en"
 
+    # === 方案 A: youtube_transcript_api（最可靠，无需 PO token）===
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.extract_info(f'https://www.youtube.com/watch?v={video_id}', download=True)
-        for path in sorted(_glob.glob(f'/tmp/ytdl_{video_id}*.ttml')):
-            try:
-                with open(path, 'r') as f:
-                    xml_text = f.read()
-                os.remove(path)
-                if len(xml_text) > 50:
-                    segments = _parse_ttml(xml_text, html_mod)
-                    if segments:
-                        break
-            except Exception:
-                try: os.remove(path)
-                except: pass
+        from youtube_transcript_api import YouTubeTranscriptApi
+        api = YouTubeTranscriptApi()
+        transcripts = api.list(video_id)
+        # 优先英文手动字幕 → 英文自动字幕 → 其他
+        target = None
+        for t in transcripts:
+            if t.language_code.startswith("en") and not t.is_generated:
+                target = t
+                break
+        if not target:
+            for t in transcripts:
+                if t.language_code.startswith("en") and t.is_generated:
+                    target = t
+                    break
+        if not target:
+            for t in transcripts:
+                target = t
+                break
+        if target:
+            fetched = target.fetch()
+            lang = target.language_code
+            segments = []
+            for s in fetched:
+                segments.append({
+                    "text": html_mod.unescape(s.text),
+                    "start": round(s.start, 1),
+                    "duration": round(s.duration, 1),
+                })
     except Exception:
         pass
 
-    # === 方案 B: timedtext API 直连 ===
+    # === 方案 B: yt-dlp 下载字幕 ===
+    if not segments:
+        ydl_opts = {
+            'skip_download': True,
+            'writesubtitles': True,
+            'writeautomaticsub': True,
+            'subtitleslangs': ['en'],
+            'subtitlesformat': 'ttml',
+            'outtmpl': {'default': f'/tmp/ytdl_{video_id}.%(ext)s'},
+            'quiet': True,
+            'no_warnings': True,
+        }
+        if CAPTION_PROXY:
+            ydl_opts['proxy'] = CAPTION_PROXY
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.extract_info(f'https://www.youtube.com/watch?v={video_id}', download=True)
+            for path in sorted(_glob.glob(f'/tmp/ytdl_{video_id}*.ttml')):
+                try:
+                    with open(path, 'r') as f:
+                        xml_text = f.read()
+                    os.remove(path)
+                    if len(xml_text) > 50:
+                        segs = _parse_ttml(xml_text, html_mod)
+                        if segs:
+                            segments = segs
+                            break
+                except Exception:
+                    try: os.remove(path)
+                    except: pass
+        except Exception:
+            pass
+
+    # === 方案 C: timedtext API 直连 ===
     if not segments:
         UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
         for ln in ["en", "en-US", "en-GB"]:
