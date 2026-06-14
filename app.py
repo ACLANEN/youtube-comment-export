@@ -742,7 +742,7 @@ def api_export_stats():
 
 @app.route("/api/export/combined", methods=["POST"])
 def api_export_combined():
-    """合并导出：评论 + 字幕"""
+    """合并导出：评论 + 字幕，按视频分组"""
     data = request.get_json()
     video_ids = data.get("video_ids", [])
     fmt = data.get("format", "csv")
@@ -751,8 +751,8 @@ def api_export_combined():
     if not video_ids:
         return jsonify({"error": "请选择至少一个视频"}), 400
 
-    # ── 拉取评论 ──
-    comment_rows = []
+    # ── 按视频拉取评论 + 字幕 ──
+    videos = []
     for vid in video_ids:
         try:
             vdata = _youtube_get(f"videos?part=snippet,statistics&id={vid}")
@@ -768,63 +768,76 @@ def api_export_combined():
         views = info["statistics"].get("viewCount", 0)
         url = f"https://www.youtube.com/watch?v={vid}"
 
-        comments = _fetch_comments(vid, min_likes=min_likes)
-        for c in comments:
-            comment_rows.append([
-                c["author"], c["text"], c["likes"], c["published_at"],
-                title, url, channel, views, pub,
-            ])
+        video = {
+            "video_id": vid,
+            "title": title,
+            "channel": channel,
+            "published_at": pub,
+            "views": views,
+            "url": url,
+            "comments": [],
+            "transcripts": [],
+        }
 
-    # ── 拉取字幕 ──
-    transcript_rows = []
-    for vid in video_ids:
-        try:
-            vdata = _youtube_get(f"videos?part=snippet&id={vid}")
-        except Exception:
-            continue
-        items = vdata.get("items", [])
-        if not items:
-            continue
-        title = items[0]["snippet"]["title"]
+        # 评论
+        for c in _fetch_comments(vid, min_likes=min_likes):
+            video["comments"].append(c)
+
+        # 字幕
         result = _extract_captions(vid)
-        if not result:
-            continue
-        for seg in result["segments"]:
-            ss = int(seg["start"])
-            mm = ss // 60
-            ss2 = ss % 60
-            ts = f"{mm:02d}:{ss2:02d}"
-            link = f"https://www.youtube.com/watch?v={vid}&t={ss}"
-            transcript_rows.append([title, vid, ts, round(seg["duration"], 1), seg["text"], link])
+        if result:
+            for seg in result["segments"]:
+                ss = int(seg["start"])
+                mm = ss // 60
+                ss2 = ss % 60
+                ts = f"{mm:02d}:{ss2:02d}"
+                link = f"https://www.youtube.com/watch?v={vid}&t={ss}"
+                video["transcripts"].append({
+                    "timestamp": ts,
+                    "duration": round(seg["duration"], 1),
+                    "text": seg["text"],
+                    "link": link,
+                })
+
+        if video["comments"] or video["transcripts"]:
+            videos.append(video)
+
+    if not videos:
+        return jsonify({"error": "所选视频暂无数据"}), 404
 
     date_str = datetime.now().strftime("%Y-%m-%d")
     filename = f"youtube_data_{date_str}"
 
     if fmt == "json":
-        return _export_combined_json(comment_rows, transcript_rows, filename)
+        return _export_combined_json(videos, filename)
     elif fmt == "xlsx":
-        return _export_combined_xlsx(comment_rows, transcript_rows, filename)
+        return _export_combined_xlsx(videos, filename)
     else:
-        return _export_combined_csv(comment_rows, transcript_rows, filename)
+        return _export_combined_csv(videos, filename)
 
 
-def _export_combined_csv(comments, transcripts, filename):
+def _export_combined_csv(videos, filename):
+    """统一扁平 CSV：每行带完整视频信息 + 类型（评论/字幕）"""
     buf = io.StringIO()
     buf.write("\ufeff")
     writer = csv.writer(buf)
 
-    # 评论部分
-    writer.writerow(["=== 评论数据 ==="])
-    writer.writerow(["评论作者", "评论内容", "点赞数", "评论时间",
-                      "视频标题", "视频链接", "频道", "视频播放量", "视频发布时间"])
-    for row in comments:
-        writer.writerow(row)
+    writer.writerow(["视频标题", "视频链接", "频道", "视频播放量", "视频发布时间",
+                      "类型", "作者/时间戳", "内容", "点赞/时长", "发布时间"])
 
-    writer.writerow([])
-    writer.writerow(["=== 字幕数据 ==="])
-    writer.writerow(["Video Title", "Video ID", "Timestamp", "Duration", "Transcript", "Video Link"])
-    for row in transcripts:
-        writer.writerow(row)
+    for v in videos:
+        # 评论行
+        for c in v["comments"]:
+            writer.writerow([
+                v["title"], v["url"], v["channel"], v["views"], v["published_at"],
+                "评论", c["author"], c["text"], c["likes"], c["published_at"],
+            ])
+        # 字幕行
+        for t in v["transcripts"]:
+            writer.writerow([
+                v["title"], v["url"], v["channel"], v["views"], v["published_at"],
+                "字幕", t["timestamp"], t["text"], t["duration"], "",
+            ])
 
     buf.seek(0)
     return send_file(
@@ -835,95 +848,114 @@ def _export_combined_csv(comments, transcripts, filename):
     )
 
 
-def _export_combined_xlsx(comments, transcripts, filename):
+def _export_combined_xlsx(videos, filename):
     try:
         from openpyxl import Workbook
-        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.styles import Font, PatternFill
     except ImportError:
         return jsonify({"error": "Excel 导出需要 openpyxl 库"}), 500
 
     wb = Workbook()
+    hf = Font(bold=True, color="FFFFFF", size=11)
+    hfill = PatternFill(start_color="1a1a1a", end_color="1a1a1a", fill_type="solid")
+
+    # ── 汇总 Sheet（统一扁平）──
+    ws0 = wb.active
+    ws0.title = "汇总"
+    u_headers = ["视频标题", "视频链接", "频道", "视频播放量", "视频发布时间",
+                  "类型", "作者/时间戳", "内容", "点赞/时长", "发布时间"]
+    for col, h in enumerate(u_headers, 1):
+        cell = ws0.cell(row=1, column=col, value=h)
+        cell.font = hf; cell.fill = hfill
+    row_idx = 2
+    for v in videos:
+        for c in v["comments"]:
+            for ci, val in enumerate([v["title"], v["url"], v["channel"], v["views"], v["published_at"],
+                                       "评论", c["author"], c["text"], c["likes"], c["published_at"]], 1):
+                ws0.cell(row=row_idx, column=ci, value=val)
+            row_idx += 1
+        for t in v["transcripts"]:
+            for ci, val in enumerate([v["title"], v["url"], v["channel"], v["views"], v["published_at"],
+                                       "字幕", t["timestamp"], t["text"], t["duration"], ""], 1):
+                ws0.cell(row=row_idx, column=ci, value=val)
+            row_idx += 1
+    for col, w in enumerate([40, 40, 20, 14, 18, 8, 16, 60, 10, 18], 1):
+        ws0.column_dimensions[chr(64+col) if col <= 26 else "A"].width = w
 
     # ── 评论 Sheet ──
-    ws1 = wb.active
-    ws1.title = "评论"
-    headers1 = ["评论作者", "评论内容", "点赞数", "评论时间",
-                "视频标题", "视频链接", "频道", "视频播放量", "视频发布时间"]
-    header_font = Font(bold=True, color="FFFFFF", size=11)
-    header_fill = PatternFill(start_color="1a1a1a", end_color="1a1a1a", fill_type="solid")
-    for col, h in enumerate(headers1, 1):
+    ws1 = wb.create_sheet("评论")
+    c_headers = ["评论作者", "评论内容", "点赞数", "评论时间",
+                  "视频标题", "视频链接", "频道", "视频播放量", "视频发布时间"]
+    for col, h in enumerate(c_headers, 1):
         cell = ws1.cell(row=1, column=col, value=h)
-        cell.font = header_font
-        cell.fill = header_fill
-    for r, row in enumerate(comments, 2):
-        for c, val in enumerate(row, 1):
-            ws1.cell(row=r, column=c, value=val)
-    ws1.column_dimensions["A"].width = 18
-    ws1.column_dimensions["B"].width = 60
-    ws1.column_dimensions["C"].width = 10
-    ws1.column_dimensions["D"].width = 18
-    ws1.column_dimensions["E"].width = 40
-    ws1.column_dimensions["F"].width = 40
-    ws1.column_dimensions["G"].width = 20
-    ws1.column_dimensions["H"].width = 14
-    ws1.column_dimensions["I"].width = 18
+        cell.font = hf; cell.fill = hfill
+    r = 2
+    for v in videos:
+        for c in v["comments"]:
+            for ci, val in enumerate([c["author"], c["text"], c["likes"], c["published_at"],
+                                       v["title"], v["url"], v["channel"], v["views"], v["published_at"]], 1):
+                ws1.cell(row=r, column=ci, value=val)
+            r += 1
+    for col, w in enumerate([18, 60, 10, 18, 40, 40, 20, 14, 18], 1):
+        ws1.column_dimensions[chr(64+col)].width = w
 
     # ── 字幕 Sheet ──
     ws2 = wb.create_sheet("字幕")
-    headers2 = ["Video Title", "Video ID", "Timestamp", "Duration", "Transcript", "Video Link"]
-    for col, h in enumerate(headers2, 1):
+    t_headers = ["视频标题", "视频ID", "时间戳", "时长(秒)", "字幕内容", "视频链接"]
+    for col, h in enumerate(t_headers, 1):
         cell = ws2.cell(row=1, column=col, value=h)
-        cell.font = header_font
-        cell.fill = header_fill
-    for r, row in enumerate(transcripts, 2):
-        for c, val in enumerate(row, 1):
-            ws2.cell(row=r, column=c, value=val)
-    ws2.column_dimensions["A"].width = 40
-    ws2.column_dimensions["B"].width = 14
-    ws2.column_dimensions["C"].width = 10
-    ws2.column_dimensions["D"].width = 8
-    ws2.column_dimensions["E"].width = 60
-    ws2.column_dimensions["F"].width = 40
+        cell.font = hf; cell.fill = hfill
+    r = 2
+    for v in videos:
+        for t in v["transcripts"]:
+            for ci, val in enumerate([v["title"], v["video_id"], t["timestamp"],
+                                       t["duration"], t["text"], t["link"]], 1):
+                ws2.cell(row=r, column=ci, value=val)
+            r += 1
+    for col, w in enumerate([40, 14, 10, 8, 60, 40], 1):
+        ws2.column_dimensions[chr(64+col)].width = w
 
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
-    return send_file(
-        buf,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        as_attachment=True,
-        download_name=f"{filename}.xlsx",
-    )
+    return send_file(buf, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                     as_attachment=True, download_name=f"{filename}.xlsx")
 
 
-def _export_combined_json(comments, transcripts, filename):
+def _export_combined_json(videos, filename):
+    """按视频分组的结构化 JSON"""
     result = {
         "exported_at": datetime.now().isoformat(),
-        "comments": [],
-        "transcripts": [],
+        "total_videos": len(videos),
+        "videos": [],
     }
-    for row in comments:
-        result["comments"].append({
-            "author": row[0], "text": row[1], "likes": row[2],
-            "published_at": row[3], "video_title": row[4],
-            "video_url": row[5], "channel": row[6],
-            "video_views": row[7], "video_published": row[8],
-        })
-    for row in transcripts:
-        result["transcripts"].append({
-            "video_title": row[0], "video_id": row[1],
-            "timestamp": row[2], "duration": row[3],
-            "text": row[4], "link": row[5],
+    for v in videos:
+        result["videos"].append({
+            "title": v["title"],
+            "url": v["url"],
+            "channel": v["channel"],
+            "views": v["views"],
+            "published_at": v["published_at"],
+            "comment_count": len(v["comments"]),
+            "transcript_segments": len(v["transcripts"]),
+            "comments": [{
+                "author": c["author"],
+                "text": c["text"],
+                "likes": c["likes"],
+                "published_at": c["published_at"],
+            } for c in v["comments"]],
+            "transcripts": [{
+                "timestamp": t["timestamp"],
+                "duration": t["duration"],
+                "text": t["text"],
+                "link": t["link"],
+            } for t in v["transcripts"]],
         })
     buf = io.BytesIO()
     buf.write(json.dumps(result, ensure_ascii=False, indent=2).encode("utf-8"))
     buf.seek(0)
-    return send_file(
-        buf,
-        mimetype="application/json",
-        as_attachment=True,
-        download_name=f"{filename}.json",
-    )
+    return send_file(buf, mimetype="application/json", as_attachment=True,
+                     download_name=f"{filename}.json")
 
 
 if __name__ == "__main__":
