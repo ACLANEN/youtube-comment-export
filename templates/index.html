@@ -204,12 +204,13 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 
 /* ====== Export Bar ====== */
 .export-bar {
-  position: fixed; bottom: 0; left: 0; right: 0; transform: none;
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-  background: var(--surface-raised); border: 1px solid var(--border-hover);
-  border-radius: var(--radius-lg); padding: 14px 24px;
-  box-shadow: 0 4px 24px rgba(0,0,0,.5);
-  z-index: 100;
+  background: rgba(20,20,28,0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 14px 28px;
+  box-shadow: var(--depth-3);
+  z-index: 100; max-width: calc(100vw - 48px);
 }
 .export-bar .badge { background: var(--accent); color: #fff; padding: 2px 10px; border-radius: 4px; font-size: 13px; font-weight: 600; }
 .export-bar .label { color: var(--text-secondary); font-size: 13px; }
