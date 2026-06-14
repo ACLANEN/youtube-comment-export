@@ -399,7 +399,6 @@ p, li { font-size: 15px; color: var(--text-secondary); }
       <div class="results-area" id="resultsArea">
         <div class="results-header">
           <span class="count" id="resultCount"></span>
-          <button class="select-all" id="selectAllBtn" onclick="toggleAll()" style="display:none">全选 / 取消</button>
         </div>
         <div class="filter-row" id="filterComments">
 
@@ -428,7 +427,6 @@ p, li { font-size: 15px; color: var(--text-secondary); }
           <span style="color:var(--text-tertiary);font-size:12px">—</span>
           <input type="date" id="dateTo" onchange="applyFilters()" style="width:120px;font-size:12px">
 
-          <button class="btn" style="padding:5px 12px;font-size:12px;margin-left:8px;background:var(--surface-raised);border:1px solid var(--border);color:var(--text-secondary);border-radius:var(--radius-sm);cursor:pointer" onclick="clearFilters()">清除</button>
 
 
         </div>>
@@ -586,6 +584,8 @@ p, li { font-size: 15px; color: var(--text-secondary); }
         <option value="10">≥10 赞</option>
         <option value="50">≥50 赞</option>
       </select>
+      <button class="btn btn-secondary" onclick="toggleAll()" style="font-size:12px;padding:8px 14px">☑ 全选</button>
+      <button class="btn btn-secondary" onclick="clearFilters()" style="font-size:12px;padding:8px 14px">✕ 清除</button>
       <button class="btn btn-primary" id="exportActionBtn" onclick="doExport()" disabled>⬇ 导出</button>
     </div>
     <div id="exportGuide"></div>
@@ -742,7 +742,7 @@ function toggleAll() {
     var cb = c.querySelector('input[type="checkbox"]');
     c.classList.toggle("selected", cb && cb.checked);
   });
-  updateSelectAllLabel();
+
   updateUI();
 }
 
@@ -765,11 +765,10 @@ async function updateUI() {
   document.getElementById("selectedCount").textContent = count;
   document.getElementById("exportActionBtn").disabled = (count === 0);
   document.getElementById("exportActionBtn").style.opacity = count === 0 ? "0.4" : "1";
-  document.getElementById("selectAllBtn").style.display = getFilteredVideos().length ? "inline" : "none";
   document.getElementById("exportBar").style.display = count > 0 ? "flex" : "none";
-  updateSelectAllLabel();
+
   
-  updateSelectAllLabel();
+
 
   // 拉取导出统计
   if (count > 0) {
@@ -876,7 +875,6 @@ function setState(s) {
   document.getElementById("filterComments").style.display = s === "results" ? "" : "none";
   document.getElementById("resultsArea").classList.toggle("active", s === "results");
   
-  document.getElementById("selectAllBtn").style.display = "none";
   document.getElementById("searchHints").style.display = s === "empty" ? "flex" : "none";
   // 重置卡片动画
   document.querySelectorAll(".video-card").forEach(c => { c.style.animation = "none"; c.offsetHeight; c.style.animation = ""; });
@@ -888,7 +886,7 @@ function applyFilters() {
   applySort();
   currentPage = 0;
   renderCards();
-  updateSelectAllLabel();
+
 }
 
 function applySort() {
