@@ -114,6 +114,12 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .export-steps .step.done .dot { background: var(--green); }
 .export-steps .step.done { color: var(--green); }
 
+/* ====== Export Guide ====== */
+#exportGuide { font-size: 11px; color: #4d4d4d; margin-top: 4px; line-height: 1.5; }
+#exportGuide span { color: var(--accent); }
+.export-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+
 /* ====== Results ====== */
 .results-area { display: none; margin-top: 24px; }
 .results-area.active { display: block; }
@@ -370,12 +376,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 
           <button class="btn" style="padding:5px 12px;font-size:12px;margin-left:8px;background:var(--surface-raised);border:1px solid var(--border);color:var(--text-secondary);border-radius:var(--radius-sm);cursor:pointer" onclick="clearFilters()">清除</button>
 
-          <label style="margin-left:12px">导出</label>
-          <select id="exportFormat">
-            <option value="csv">CSV</option>
-            <option value="xlsx">Excel (.xlsx)</option>
-            <option value="json">JSON</option>
-          </select>
+
         </div>>
 
         <div class="video-list" id="videoList"></div>
@@ -488,18 +489,30 @@ p, li { font-size: 16px; color: var(--text-secondary); }
     <span class="badge" id="selectedCount">0</span>
     <span class="label">个视频已选</span>
     <span class="stat-item" id="exportStats" style="display:none"></span>
-    <select id="exportType" style="width:auto;font-size:12px" onchange="onExportTypeChange()">
-            <option value="comments">仅评论</option>
-            <option value="transcript">仅字幕</option>
-            <option value="both">评论+字幕</option>
-          </select>
-          <select id="minLikes" style="width:auto;font-size:12px" onchange="updateUI()">
-            <option value="0">全部评论</option>
-            <option value="5">≥5 赞</option>
-            <option value="10">≥10 赞</option>
-            <option value="50">≥50 赞</option>
-          </select>
-          <button class="btn btn-primary" id="exportActionBtn" onclick="doExport()" disabled>⬇ 导出</button>
+    <div class="export-controls">
+      <select id="exportType" style="width:auto;font-size:12px" onchange="onExportTypeChange()" title="选择导出内容类型">
+        <option value="comments">📝 仅评论</option>
+        <option value="transcript">📃 仅字幕</option>
+        <option value="both">📊 评论+字幕</option>
+      </select>
+      <select id="exportStructure" style="width:auto;font-size:12px" onchange="onStructureChange()" title="选择数据组织方式">
+        <option value="flat">📋 统一汇总</option>
+        <option value="per_video">📑 按视频分表</option>
+      </select>
+      <select id="exportFormat" style="width:auto;font-size:12px" title="选择文件格式">
+        <option value="csv">CSV</option>
+        <option value="xlsx">Excel (.xlsx)</option>
+        <option value="json">JSON</option>
+      </select>
+      <select id="minLikes" style="width:auto;font-size:12px" onchange="updateUI()" title="仅导出点赞数≥此值的评论">
+        <option value="0">全部评论</option>
+        <option value="5">≥5 赞</option>
+        <option value="10">≥10 赞</option>
+        <option value="50">≥50 赞</option>
+      </select>
+      <button class="btn btn-primary" id="exportActionBtn" onclick="doExport()" disabled>⬇ 导出</button>
+    </div>
+    <div id="exportGuide"></div>
   </div>
 
 </div>
@@ -695,9 +708,26 @@ function showToast(msg) {
 
 
 
+
+function onStructureChange() {
+  var s = document.getElementById("exportStructure").value;
+  var g = document.getElementById("exportGuide");
+  var t = document.getElementById("exportType").value;
+  var f = document.getElementById("exportFormat").value;
+  if (s === "flat") {
+    if (f === "xlsx") g.innerHTML = '<span>📋 统一汇总</span> — 汇总表 + 评论表 + 字幕表，所有视频数据在一起';
+    else g.innerHTML = '<span>📋 统一汇总</span> — 所有视频数据合并到一张表，「类型」列区分评论/字幕';
+  } else {
+    if (f === "xlsx") g.innerHTML = '<span>📑 按视频分表</span> — 每个视频一个独立 Sheet，方便单独查看';
+    else if (f === "json") g.innerHTML = '<span>📑 按视频分表</span> — JSON 按视频嵌套分组';
+    else g.innerHTML = '<span>📑 按视频分表</span> — 每个视频用标题行分隔，方便定位';
+  }
+}
+
 function onExportTypeChange() {
   var type = document.getElementById("exportType").value;
   document.getElementById("minLikes").style.display = (type === "transcript") ? "none" : "";
+  onStructureChange();
   updateUI();
 }
 
@@ -711,6 +741,7 @@ function doExport() {
 
   var exportType = document.getElementById("exportType").value;
   var format = document.getElementById("exportFormat").value;
+  var structure = document.getElementById("exportStructure").value;
   var minLikes = parseInt(document.getElementById("minLikes").value) || 0;
   var bar = document.getElementById("exportBar");
   var oldHTML = bar.innerHTML;
@@ -720,13 +751,13 @@ function doExport() {
   var url, body;
   if (exportType === "transcript") {
     url = "/api/export/transcript";
-    body = JSON.stringify({ video_ids: ids, format: format });
+    body = JSON.stringify({ video_ids: ids, format: format, structure: structure });
   } else if (exportType === "both") {
     url = "/api/export/combined";
-    body = JSON.stringify({ video_ids: ids, format: format, min_likes: minLikes });
+    body = JSON.stringify({ video_ids: ids, format: format, structure: structure, min_likes: minLikes });
   } else {
     url = "/api/export";
-    body = JSON.stringify({ video_ids: ids, format: format, min_likes: minLikes });
+    body = JSON.stringify({ video_ids: ids, format: format, structure: structure, min_likes: minLikes });
   }
 
   fetch(url, {
@@ -764,6 +795,7 @@ function setState(s) {
   // 重置卡片动画
   document.querySelectorAll(".video-card").forEach(c => { c.style.animation = "none"; c.offsetHeight; c.style.animation = ""; });
   document.getElementById("loadMoreWrap").classList.toggle("active", s === "results" && !!nextPageToken);
+  if (s === "results") onStructureChange();
   if (s !== "results") { }
 }
 
