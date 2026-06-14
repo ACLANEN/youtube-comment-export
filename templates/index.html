@@ -73,6 +73,12 @@ p, li { font-size: 15px; color: var(--text-secondary); }
 .nav .nav-btn { font-size: 13px; color: var(--text-secondary); text-decoration: none; padding: 6px 16px; border-radius: var(--radius-sm); transition: all .15s; border: 1px solid var(--border); }
 .nav .nav-btn:hover { background: var(--surface-raised); color: var(--text); }
 
+
+/* ====== YouTube Brand ====== */
+.yt-brand { color: #FF0000; font-weight: 800; letter-spacing: -1px; }
+.yt-icon { display: inline-block; width: 28px; height: 20px; background: #FF0000; border-radius: 4px; position: relative; margin-right: 2px; vertical-align: middle; margin-bottom: 4px; }
+.yt-icon::after { content: ""; display: block; width: 0; height: 0; border-left: 10px solid #fff; border-top: 6px solid transparent; border-bottom: 6px solid transparent; position: absolute; top: 50%; left: 55%; transform: translate(-50%, -50%); }
+
 /* ====== Hero ====== */
 .hero { padding: 120px 0 200px; text-align: center; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
 
@@ -348,7 +354,7 @@ p, li { font-size: 15px; color: var(--text-secondary); }
 <!-- ====== Hero ====== -->
 <section class="hero">
   <div class="container">
-    <h1>快速获取 YouTube<br>视频评论数据</h1>
+    <h1>快速获取 <span class="yt-icon"></span><span class="yt-brand">YouTube</span><br>视频评论数据</h1>
     <p class="subtitle">获取真实评论与字幕数据，而非 AI 总结。完整保留用户原声，判断权始终属于你。</p>
     <div class="cta-group">
       <a href="#search" class="btn btn-primary">开始搜索</a>
