@@ -233,7 +233,7 @@ p, li { font-size: 15px; color: var(--text-secondary); }
 /* ====== Export Bar ====== */
 .export-bar { display: none;
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  align-items: center; gap: 16px; flex-wrap: wrap;
   background: var(--export-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: 14px 28px;
@@ -760,7 +760,7 @@ async function updateUI() {
   document.getElementById("exportActionBtn").disabled = (count === 0);
   document.getElementById("exportActionBtn").style.opacity = count === 0 ? "0.4" : "1";
   document.getElementById("selectAllBtn").style.display = getFilteredVideos().length ? "inline" : "none";
-  document.getElementById("exportBar").style.display = count > 0 ? "" : "none";
+  document.getElementById("exportBar").style.display = count > 0 ? "flex" : "none";
   updateSelectAllLabel();
   
   updateSelectAllLabel();
