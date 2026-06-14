@@ -10,6 +10,9 @@ import threading
 from datetime import datetime, timedelta
 
 import requests
+import yt_dlp
+import xml.etree.ElementTree as ET
+import glob as _glob
 
 from flask import Flask, render_template, request, jsonify, send_file, redirect
 
@@ -18,6 +21,7 @@ app = Flask(__name__)
 # ── 配置（仅从环境变量读取，无默认值暴露）──
 API_KEY = os.getenv("YOUTUBE_API_KEY")
 BASE_URL = os.getenv("YOUTUBE_BASE_URL", "https://www.googleapis.com/youtube/v3")
+CAPTION_PROXY = os.getenv("CAPTION_PROXY", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 
 # ── 激活码存储 ──
@@ -235,6 +239,185 @@ def admin_reset_code():
 
     _update_codes(_reset)
     return jsonify({"ok": True})
+
+
+
+# ═══════════════════════════════════════
+#  字幕提取
+# ═══════════════════════════════════════
+
+def _extract_captions(video_id):
+    """字幕提取：yt-dlp 优先，timedtext API 兜底"""
+    import html as html_mod
+
+    # === 方案 A: yt-dlp 下载字幕 ===
+    ydl_opts = {
+        'skip_download': True,
+        'writesubtitles': True,
+        'writeautomaticsub': True,
+        'subtitleslangs': ['en'],
+        'subtitlesformat': 'ttml',
+        'outtmpl': {'default': f'/tmp/ytdl_{video_id}.%(ext)s'},
+        'quiet': True,
+        'no_warnings': True,
+    }
+    if CAPTION_PROXY:
+        ydl_opts['proxy'] = CAPTION_PROXY
+
+    segments = None
+    lang = "en"
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.extract_info(f'https://www.youtube.com/watch?v={video_id}', download=True)
+        for path in sorted(_glob.glob(f'/tmp/ytdl_{video_id}*.ttml')):
+            try:
+                with open(path, 'r') as f:
+                    xml_text = f.read()
+                os.remove(path)
+                if len(xml_text) > 50:
+                    segments = _parse_ttml(xml_text, html_mod)
+                    if segments:
+                        break
+            except Exception:
+                try: os.remove(path)
+                except: pass
+    except Exception:
+        pass
+
+    # === 方案 B: timedtext API 直连 ===
+    if not segments:
+        UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+        for ln in ["en", "en-US", "en-GB"]:
+            try:
+                proxies = {"http": CAPTION_PROXY, "https": CAPTION_PROXY} if CAPTION_PROXY else None
+                r = requests.get(
+                    f"https://www.youtube.com/api/timedtext?v={video_id}&lang={ln}",
+                    headers={"User-Agent": UA}, timeout=10, proxies=proxies
+                )
+                if r.status_code == 200 and len(r.text) > 50:
+                    segments = _parse_ttml(r.text, html_mod)
+                    lang = ln
+                    break
+            except Exception:
+                continue
+
+    if not segments:
+        return None
+
+    return {
+        "video_id": video_id,
+        "language": lang,
+        "segments": segments,
+        "total": len(segments),
+    }
+
+
+def _parse_ttml(xml_text, html_mod):
+    try:
+        root = ET.fromstring(xml_text)
+        segments = []
+        for p in root.iter("{http://www.w3.org/ns/ttml}p"):
+            begin = p.attrib.get("begin", "0")
+            dur = p.attrib.get("dur", "1")
+            text = "".join(p.itertext()).strip()
+            if text:
+                s = _parse_ttml_time(begin)
+                d = _parse_ttml_time(dur)
+                segments.append({"text": html_mod.unescape(text), "start": round(s, 1), "duration": round(d, 1)})
+        return segments
+    except Exception:
+        return []
+
+
+def _parse_ttml_time(t):
+    t = t.strip()
+    if ":" in t:
+        parts = t.split(":")
+        if len(parts) == 3:
+            return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+        elif len(parts) == 2:
+            return int(parts[0]) * 60 + float(parts[1])
+    return float(t) if t else 0
+
+
+@app.route("/api/captions")
+def api_captions():
+    video_id = request.args.get("video_id", "").strip()
+    if not video_id:
+        return jsonify({"error": "缺少 video_id"}), 400
+    result = _extract_captions(video_id)
+    if result is None:
+        return jsonify({"error": "字幕获取失败（视频可能无字幕或被封锁）"}), 404
+    return jsonify({
+        "video_id": video_id,
+        "language": result["language"],
+        "segments": result["segments"],
+        "total_segments": result["total"],
+    })
+
+
+@app.route("/api/export/transcript", methods=["POST"])
+def api_export_transcript():
+    data = request.get_json()
+    video_ids = data.get("video_ids", [])
+    fmt = data.get("format", "csv")
+    if not video_ids:
+        return jsonify({"error": "未选择视频"}), 400
+
+    all_rows = []
+    for vid in video_ids:
+        try:
+            vdata = _youtube_get(f"videos?part=snippet&id={vid}")
+        except Exception:
+            continue
+        items = vdata.get("items", [])
+        if not items:
+            continue
+        title = items[0]["snippet"]["title"]
+        result = _extract_captions(vid)
+        if not result:
+            continue
+        for seg in result["segments"]:
+            ss = int(seg["start"])
+            mm = ss // 60
+            ss2 = ss % 60
+            ts = f"{mm:02d}:{ss2:02d}"
+            link = f"https://www.youtube.com/watch?v={vid}&t={ss}"
+            all_rows.append([title, vid, ts, round(seg["duration"], 1), seg["text"], link])
+
+    if not all_rows:
+        return jsonify({"error": "所选视频无字幕"}), 404
+
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    filename = f"transcript_{date_str}"
+
+    if fmt == "xlsx":
+        try:
+            from openpyxl import Workbook; from openpyxl.styles import Font, PatternFill
+        except ImportError:
+            return jsonify({"error": "需要openpyxl"}), 500
+        wb = Workbook(); ws = wb.active; ws.title = "字幕"
+        for c, h in enumerate(["Video Title", "Video ID", "Timestamp", "Duration", "Transcript", "Video Link"], 1):
+            cell = ws.cell(row=1, column=c, value=h)
+            cell.font = Font(bold=True, color="FFFFFF"); cell.fill = PatternFill(start_color="1a1a1a", end_color="1a1a1a", fill_type="solid")
+        for r, row in enumerate(all_rows, 2):
+            for c, v in enumerate(row, 1): ws.cell(row=r, column=c, value=v)
+        buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+        return send_file(buf, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", as_attachment=True, download_name=f"{filename}.xlsx")
+    elif fmt == "json":
+        result = {"exported_at": datetime.now().isoformat(), "transcripts": []}
+        for r in all_rows:
+            result["transcripts"].append(dict(zip(["video_title","video_id","timestamp","duration","text","link"], r)))
+        buf = io.BytesIO(); buf.write(json.dumps(result, ensure_ascii=False, indent=2).encode()); buf.seek(0)
+        return send_file(buf, mimetype="application/json", as_attachment=True, download_name=f"{filename}.json")
+    else:
+        buf = io.StringIO(); buf.write("\ufeff")
+        writer = csv.writer(buf)
+        writer.writerow(["Video Title", "Video ID", "Timestamp", "Duration", "Transcript", "Video Link"])
+        for row in all_rows: writer.writerow(row)
+        buf.seek(0)
+        return send_file(io.BytesIO(buf.getvalue().encode("utf-8")), mimetype="text/csv", as_attachment=True, download_name=f"{filename}.csv")
 
 
 # ═══════════════════════════════════════
