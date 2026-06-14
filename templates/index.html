@@ -57,7 +57,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .btn-secondary:hover { border-color: var(--accent); background: var(--surface-raised); transform: translateY(-1px); }
 
 /* ====== Features ====== */
-.feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 48px; }
+.feature-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 48px; }
 .feature-card { background: rgba(20,20,28,0.35); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; transition: all .3s; box-shadow: var(--depth-1); }
 .feature-card:hover { border-color: var(--accent); transform: translateY(-4px); box-shadow: var(--depth-3); }
 .feature-card .icon { font-size: 24px; margin-bottom: 16px; }
@@ -259,7 +259,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
   .hero { padding: 120px 0 48px; }
   .section { padding: 48px 0; }
   .container { padding: 0 20px; }
-  .feature-grid { grid-template-columns: 1fr; }
+  .feature-grid { grid-template-columns: repeat(2, 1fr); }
   .video-list { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .card-top { aspect-ratio: 16/9; }
   .video-card .card-body { padding: 10px 12px 12px; }
@@ -324,7 +324,8 @@ p, li { font-size: 16px; color: var(--text-secondary); }
     <div class="feature-grid">
       <div class="feature-card"><div class="icon">🔍</div><h3>关键词搜索</h3><p>输入产品名、品牌或话题关键词，快速匹配相关 YouTube 视频（单次最多 50 个）。</p></div>
       <div class="feature-card"><div class="icon">💬</div><h3>评论抓取</h3><p>获取视频公开评论及回复，每个视频最多 500 条，可按点赞数过滤噪音。</p></div>
-      <div class="feature-card"><div class="icon">📊</div><h3>多格式导出</h3><p>支持 CSV、Excel、JSON 格式，一键导出结构化评论数据。</p></div>
+      <div class="feature-card"><div class="icon">📝</div><h3>字幕提取</h3><p>自动获取视频字幕（CC/自动生成），支持时间轴戳记，可单独或与评论合并导出。</p></div>
+      <div class="feature-card"><div class="icon">📊</div><h3>多格式导出</h3><p>支持 CSV、Excel、JSON 格式，评论/字幕可统一汇总或按视频分表导出。</p></div>
     </div>
   </div>
 </section>
@@ -474,7 +475,18 @@ p, li { font-size: 16px; color: var(--text-secondary); }
     <h2 style="text-align:center;margin-bottom:32px">更新日志</h2>
     <div style="max-width:600px;margin:0 auto;background:var(--surface);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 32px;box-shadow:var(--depth-2)">
             <div style="margin-bottom:20px">
-        <div style="font-size:12px;color:var(--accent);font-weight:600;margin-bottom:4px">2026-06-02</div>
+        <div style="font-size:12px;color:var(--accent);font-weight:600;margin-bottom:4px">2026-06-15</div>
+        <ul style="font-size:13px;color:var(--text-secondary);padding-left:18px;line-height:1.8">
+          <li>全新 Spatial UI 毛玻璃视觉风格</li>
+          <li>视频卡片升级为 4 列网格布局</li>
+          <li>字幕提取功能：支持 CC/自动生成字幕，含时间轴戳记</li>
+          <li>导出升级：评论+字幕合并导出，支持统一汇总 / 按视频分表</li>
+          <li>筛选增强：播放量、评论数、日期范围、排序</li>
+          <li>分页导航替代无限滚动</li>
+        </ul>
+      </div>
+      <div style="margin-bottom:20px">
+        <div style="font-size:12px;color:var(--text-tertiary);font-weight:600;margin-bottom:4px">2026-06-02</div>
         <ul style="font-size:13px;color:var(--text-secondary);padding-left:18px;line-height:1.8">
           <li>新增搜索模式：综合搜索 / 标题精准</li>
           <li>筛选升级：播放量、评论数、日期范围</li>
