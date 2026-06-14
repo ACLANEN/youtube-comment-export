@@ -705,6 +705,191 @@ def api_export_stats():
         "total_likes": total_likes,
     })
 
+@app.route("/api/export/combined", methods=["POST"])
+def api_export_combined():
+    """合并导出：评论 + 字幕"""
+    data = request.get_json()
+    video_ids = data.get("video_ids", [])
+    fmt = data.get("format", "csv")
+    min_likes = int(data.get("min_likes", 0))
+
+    if not video_ids:
+        return jsonify({"error": "请选择至少一个视频"}), 400
+
+    # ── 拉取评论 ──
+    comment_rows = []
+    for vid in video_ids:
+        try:
+            vdata = _youtube_get(f"videos?part=snippet,statistics&id={vid}")
+        except Exception:
+            continue
+        items = vdata.get("items", [])
+        if not items:
+            continue
+        info = items[0]
+        title = info["snippet"]["title"]
+        channel = info["snippet"]["channelTitle"]
+        pub = info["snippet"]["publishedAt"]
+        views = info["statistics"].get("viewCount", 0)
+        url = f"https://www.youtube.com/watch?v={vid}"
+
+        comments = _fetch_comments(vid, min_likes=min_likes)
+        for c in comments:
+            comment_rows.append([
+                c["author"], c["text"], c["likes"], c["published_at"],
+                title, url, channel, views, pub,
+            ])
+
+    # ── 拉取字幕 ──
+    transcript_rows = []
+    for vid in video_ids:
+        try:
+            vdata = _youtube_get(f"videos?part=snippet&id={vid}")
+        except Exception:
+            continue
+        items = vdata.get("items", [])
+        if not items:
+            continue
+        title = items[0]["snippet"]["title"]
+        result = _extract_captions(vid)
+        if not result:
+            continue
+        for seg in result["segments"]:
+            ss = int(seg["start"])
+            mm = ss // 60
+            ss2 = ss % 60
+            ts = f"{mm:02d}:{ss2:02d}"
+            link = f"https://www.youtube.com/watch?v={vid}&t={ss}"
+            transcript_rows.append([title, vid, ts, round(seg["duration"], 1), seg["text"], link])
+
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    filename = f"youtube_data_{date_str}"
+
+    if fmt == "json":
+        return _export_combined_json(comment_rows, transcript_rows, filename)
+    elif fmt == "xlsx":
+        return _export_combined_xlsx(comment_rows, transcript_rows, filename)
+    else:
+        return _export_combined_csv(comment_rows, transcript_rows, filename)
+
+
+def _export_combined_csv(comments, transcripts, filename):
+    buf = io.StringIO()
+    buf.write("\ufeff")
+    writer = csv.writer(buf)
+
+    # 评论部分
+    writer.writerow(["=== 评论数据 ==="])
+    writer.writerow(["评论作者", "评论内容", "点赞数", "评论时间",
+                      "视频标题", "视频链接", "频道", "视频播放量", "视频发布时间"])
+    for row in comments:
+        writer.writerow(row)
+
+    writer.writerow([])
+    writer.writerow(["=== 字幕数据 ==="])
+    writer.writerow(["Video Title", "Video ID", "Timestamp", "Duration", "Transcript", "Video Link"])
+    for row in transcripts:
+        writer.writerow(row)
+
+    buf.seek(0)
+    return send_file(
+        io.BytesIO(buf.getvalue().encode("utf-8")),
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name=f"{filename}.csv",
+    )
+
+
+def _export_combined_xlsx(comments, transcripts, filename):
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    except ImportError:
+        return jsonify({"error": "Excel 导出需要 openpyxl 库"}), 500
+
+    wb = Workbook()
+
+    # ── 评论 Sheet ──
+    ws1 = wb.active
+    ws1.title = "评论"
+    headers1 = ["评论作者", "评论内容", "点赞数", "评论时间",
+                "视频标题", "视频链接", "频道", "视频播放量", "视频发布时间"]
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill(start_color="1a1a1a", end_color="1a1a1a", fill_type="solid")
+    for col, h in enumerate(headers1, 1):
+        cell = ws1.cell(row=1, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+    for r, row in enumerate(comments, 2):
+        for c, val in enumerate(row, 1):
+            ws1.cell(row=r, column=c, value=val)
+    ws1.column_dimensions["A"].width = 18
+    ws1.column_dimensions["B"].width = 60
+    ws1.column_dimensions["C"].width = 10
+    ws1.column_dimensions["D"].width = 18
+    ws1.column_dimensions["E"].width = 40
+    ws1.column_dimensions["F"].width = 40
+    ws1.column_dimensions["G"].width = 20
+    ws1.column_dimensions["H"].width = 14
+    ws1.column_dimensions["I"].width = 18
+
+    # ── 字幕 Sheet ──
+    ws2 = wb.create_sheet("字幕")
+    headers2 = ["Video Title", "Video ID", "Timestamp", "Duration", "Transcript", "Video Link"]
+    for col, h in enumerate(headers2, 1):
+        cell = ws2.cell(row=1, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+    for r, row in enumerate(transcripts, 2):
+        for c, val in enumerate(row, 1):
+            ws2.cell(row=r, column=c, value=val)
+    ws2.column_dimensions["A"].width = 40
+    ws2.column_dimensions["B"].width = 14
+    ws2.column_dimensions["C"].width = 10
+    ws2.column_dimensions["D"].width = 8
+    ws2.column_dimensions["E"].width = 60
+    ws2.column_dimensions["F"].width = 40
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(
+        buf,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=f"{filename}.xlsx",
+    )
+
+
+def _export_combined_json(comments, transcripts, filename):
+    result = {
+        "exported_at": datetime.now().isoformat(),
+        "comments": [],
+        "transcripts": [],
+    }
+    for row in comments:
+        result["comments"].append({
+            "author": row[0], "text": row[1], "likes": row[2],
+            "published_at": row[3], "video_title": row[4],
+            "video_url": row[5], "channel": row[6],
+            "video_views": row[7], "video_published": row[8],
+        })
+    for row in transcripts:
+        result["transcripts"].append({
+            "video_title": row[0], "video_id": row[1],
+            "timestamp": row[2], "duration": row[3],
+            "text": row[4], "link": row[5],
+        })
+    buf = io.BytesIO()
+    buf.write(json.dumps(result, ensure_ascii=False, indent=2).encode("utf-8"))
+    buf.seek(0)
+    return send_file(
+        buf,
+        mimetype="application/json",
+        as_attachment=True,
+        download_name=f"{filename}.json",
+    )
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))

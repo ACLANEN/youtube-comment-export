@@ -282,7 +282,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 <section class="hero">
   <div class="container">
     <h1>快速获取 YouTube<br>视频评论数据</h1>
-    <p class="subtitle">获取真实评论数据，而非 AI 总结。完整保留用户原声，判断权始终属于你。</p>
+    <p class="subtitle">获取真实评论与字幕数据，而非 AI 总结。完整保留用户原声，判断权始终属于你。</p>
     <div class="cta-group">
       <a href="#search" class="btn btn-primary">开始搜索</a>
       <button class="btn btn-secondary" onclick="document.getElementById('keyword').value='cfmoto zforce z10';doSearch();document.getElementById('search').scrollIntoView({behavior:'smooth'});">查看示例</button>
@@ -308,7 +308,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
   <div class="container">
     <h2 style="text-align:center">开始调研</h2>
     <p style="text-align:center;color:var(--text-tertiary);margin-bottom:8px;font-size:15px;">输入关键词，按播放量排序，选择视频后导出评论</p>
-    <p style="text-align:center;color:#4d4d4d;margin-bottom:16px;font-size:12px;">📌 每次搜索最多 50 个视频 · 每个视频最多导出 500 条评论 · 评论数为顶层评论（不含回复），可能与 YouTube 显示总数有差异</p>
+    <p style="text-align:center;color:#4d4d4d;margin-bottom:16px;font-size:12px;">📌 每次搜索最多 50 个视频 · 每个视频最多导出 500 条评论 · 评论数为顶层评论（不含回复），可能与 YouTube 显示总数有差异 · 支持评论/字幕/合并导出</p>
 
     <div class="search-card">
       <div class="search-row">
@@ -333,13 +333,6 @@ p, li { font-size: 16px; color: var(--text-secondary); }
         <div class="results-header">
           <span class="count" id="resultCount"></span>
           <button class="select-all" id="selectAllBtn" onclick="toggleAll()" style="display:none">全选 / 取消</button>
-        </div>
-
-        
-        
-        <div class="mode-tabs" id="modeTabs">
-          <button class="mode-tab-btn active" id="tabComments" onclick="switchTab('comments')">💬 评论</button>
-          <button class="mode-tab-btn" id="tabTranscript" onclick="switchTab('transcript')">📝 字幕</button>
         </div>
         <div class="filter-row" id="filterComments">
 
@@ -413,7 +406,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
       <span class="workflow-arrow">→</span>
       <div class="workflow-step"><div class="step-num">2</div><div class="step-label">选择目标视频</div></div>
       <span class="workflow-arrow">→</span>
-      <div class="workflow-step"><div class="step-num">3</div><div class="step-label">预览评论</div></div>
+      <div class="workflow-step"><div class="step-num">3</div><div class="step-label">选择导出类型</div></div>
       <span class="workflow-arrow">→</span>
       <div class="workflow-step"><div class="step-num">4</div><div class="step-label">导出数据</div></div>
     </div>
@@ -488,7 +481,12 @@ p, li { font-size: 16px; color: var(--text-secondary); }
     <span class="badge" id="selectedCount">0</span>
     <span class="label">个视频已选</span>
     <span class="stat-item" id="exportStats" style="display:none"></span>
-    <select id="minLikes" style="width:auto;font-size:12px" onchange="updateUI()">
+    <select id="exportType" style="width:auto;font-size:12px" onchange="onExportTypeChange()">
+            <option value="comments">仅评论</option>
+            <option value="transcript">仅字幕</option>
+            <option value="both">评论+字幕</option>
+          </select>
+          <select id="minLikes" style="width:auto;font-size:12px" onchange="updateUI()">
             <option value="0">全部评论</option>
             <option value="5">≥5 赞</option>
             <option value="10">≥10 赞</option>
@@ -539,62 +537,6 @@ function verifyCode() {
 </script>
 
 <script>
-var currentMode = "comments";
-
-function switchTab(mode) {
-  currentMode = mode;
-  document.getElementById("tabComments").classList.toggle("active", mode === "comments");
-  document.getElementById("tabTranscript").classList.toggle("active", mode === "transcript");
-  document.getElementById("filterComments").style.display = mode === "comments" ? "" : "none";
-  document.getElementById("videoList").style.display = mode === "comments" ? "" : "none";
-  document.getElementById("transcriptList").style.display = mode === "transcript" ? "" : "none";
-  document.getElementById("exportActionBtn").textContent = mode === "comments" ? "⬇ 导出评论" : "⬇ 导出字幕";
-  document.getElementById("pagination").style.display = mode === "comments" ? "" : "none";
-  document.getElementById("loadMoreWrap").style.display = mode === "comments" ? "" : "none";
-  if (mode === "transcript") loadTranscriptPreviews();
-}
-
-async function loadTranscriptPreviews() {
-  var container = document.getElementById("transcriptList");
-  var checked = document.querySelectorAll("#videoList input[type='checkbox']:checked");
-  if (!checked.length) {
-    container.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-tertiary)">请先在评论模式勾选视频</div>';
-    return;
-  }
-
-  container.innerHTML = '';
-  for (var i = 0; i < checked.length; i++) {
-    var vid = videos[checked[i].value].video_id;
-    var title = videos[checked[i].value].title;
-    var segDiv = document.createElement("div");
-    segDiv.style.cssText = "padding:16px 20px;border-bottom:1px solid var(--border)";
-    segDiv.innerHTML = '<div style="font-weight:600;margin-bottom:8px;font-size:14px">🎬 ' + esc(title) + '</div><div style="color:var(--text-tertiary);font-size:12px">加载中...</div>';
-    container.appendChild(segDiv);
-
-    try {
-      var resp = await fetch("/api/captions?video_id=" + vid);
-      var data = await resp.json();
-      if (data.error) {
-        segDiv.innerHTML = '<div style="font-weight:600;margin-bottom:4px;font-size:14px">🎬 ' + esc(title) + '</div><div style="color:var(--text-tertiary);font-size:12px">无字幕</div>';
-        continue;
-      }
-      var segs = data.segments || [];
-      var html2 = '<div style="font-weight:600;margin-bottom:8px;font-size:14px">🎬 ' + esc(title) + ' <span style="font-size:11px;color:var(--text-tertiary);font-weight:400">(' + segs.length + ' 段)</span></div>';
-      segs.slice(0, 30).forEach(function(s) {
-        var mm = Math.floor(s.start / 60);
-        var ss = Math.floor(s.start % 60);
-        var ts = String(mm).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
-        html2 += '<div class="transcript-segment"><a class="ts-time" href="https://www.youtube.com/watch?v=' + vid + '&t=' + Math.floor(s.start) + '" target="_blank">' + ts + '</a><span class="ts-text">' + esc(s.text) + '</span></div>';
-      });
-      if (segs.length > 30) html2 += '<div style="padding:8px 16px;font-size:12px;color:var(--text-tertiary)">...还有 ' + (segs.length - 30) + ' 段（导出获取完整字幕）</div>';
-      segDiv.innerHTML = html2;
-    } catch(e) {
-      segDiv.innerHTML = '<div style="font-weight:600;margin-bottom:4px;font-size:14px">🎬 ' + esc(title) + '</div><div style="color:var(--red);font-size:12px">获取失败</div>';
-    }
-  }
-}
-
-
 let nextPageToken = "";
 let currentKeyword = "";
 
@@ -604,14 +546,7 @@ async function quickSearch(kw) {
   document.getElementById("search").scrollIntoView({behavior:"smooth"});
 }
 
-function switchMode(mode) {
-  currentMode = mode;
-  document.getElementById("tabComments").classList.toggle("active", mode === "comments");
-  document.getElementById("filterComments").style.display = mode === "comments" ? "flex" : "none";
 
-  document.querySelectorAll(".video-card.expanded").forEach(function(c) { c.classList.remove("expanded"); });
-  document.querySelectorAll(".comment-preview").forEach(function(c) { c.innerHTML = ""; });
-}
 
 var searchMode = "broad";
 function setSearchMode(mode, btn) {
@@ -748,33 +683,15 @@ function showToast(msg) {
   setTimeout(function() { if (t.parentNode) t.remove(); }, 2500);
 }
 
-function doExportTranscript() {
-  var checked = document.querySelectorAll("#videoList input[type='checkbox']:checked");
-  var ids = [];
-  for (var i = 0; i < checked.length; i++) ids.push(videos[checked[i].value].video_id);
-  if (!ids.length) return;
 
-  var format = document.getElementById("exportFormat").value;
-  var bar = document.getElementById("exportBar");
-  var oldHTML = bar.innerHTML;
-  bar.innerHTML = '<span style="color:var(--accent);">⏳ 导出字幕中...</span>';
 
-  fetch("/api/export/transcript", {
-    method: "POST", headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({video_ids:ids, format:format})
-  }).then(function(r){if(!r.ok) throw new Error("导出失败");return r.blob()})
-  .then(function(b){
-    var a=document.createElement("a");
-    a.href=URL.createObjectURL(b);
-    a.download="transcript_"+new Date().toISOString().slice(0,10)+"."+format;
-    document.body.appendChild(a);a.click();document.body.removeChild(a);
-    showToast("✓ 字幕导出成功");
-  }).catch(function(e){showToast("导出失败: "+e.message)})
-  .finally(function(){bar.innerHTML=oldHTML});
+function onExportTypeChange() {
+  var type = document.getElementById("exportType").value;
+  document.getElementById("minLikes").style.display = (type === "transcript") ? "none" : "";
+  updateUI();
 }
 
 function doExport() {
-  if (currentMode === "transcript") { doExportTranscript(); return; }
   var checked = document.querySelectorAll("#videoList input[type='checkbox']:checked");
   var ids = [];
   for (var i = 0; i < checked.length; i++) {
@@ -782,6 +699,7 @@ function doExport() {
   }
   if (!ids.length) return;
 
+  var exportType = document.getElementById("exportType").value;
   var format = document.getElementById("exportFormat").value;
   var minLikes = parseInt(document.getElementById("minLikes").value) || 0;
   var bar = document.getElementById("exportBar");
@@ -789,18 +707,31 @@ function doExport() {
 
   bar.innerHTML = '<span style="color:var(--accent);">⏳ 导出中...</span>';
 
-  fetch("/api/export", {
+  var url, body;
+  if (exportType === "transcript") {
+    url = "/api/export/transcript";
+    body = JSON.stringify({ video_ids: ids, format: format });
+  } else if (exportType === "both") {
+    url = "/api/export/combined";
+    body = JSON.stringify({ video_ids: ids, format: format, min_likes: minLikes });
+  } else {
+    url = "/api/export";
+    body = JSON.stringify({ video_ids: ids, format: format, min_likes: minLikes });
+  }
+
+  fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ video_ids: ids, format: format, min_likes: minLikes }),
+    body: body,
   }).then(function(resp) {
     if (!resp.ok) throw new Error("导出失败");
     return resp.blob();
   }).then(function(blob) {
     var a = document.createElement("a");
     var ext = format === "xlsx" ? ".xlsx" : format === "json" ? ".json" : ".csv";
+    var prefix = exportType === "transcript" ? "transcript_" : exportType === "both" ? "youtube_data_" : "youtube_comments_";
     a.href = URL.createObjectURL(blob);
-    a.download = "youtube_comments_" + new Date().toISOString().slice(0,10) + ext;
+    a.download = prefix + new Date().toISOString().slice(0,10) + ext;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -815,7 +746,7 @@ function doExport() {
 
 function setState(s) {
   document.getElementById("loading").classList.toggle("active", s === "loading");
-  document.getElementById("modeTabs").style.display = s === "results" ? "" : "none";
+  document.getElementById("filterComments").style.display = s === "results" ? "" : "none";
   document.getElementById("resultsArea").classList.toggle("active", s === "results");
   
   document.getElementById("selectAllBtn").style.display = "none";
@@ -823,7 +754,7 @@ function setState(s) {
   // 重置卡片动画
   document.querySelectorAll(".video-card").forEach(c => { c.style.animation = "none"; c.offsetHeight; c.style.animation = ""; });
   document.getElementById("loadMoreWrap").classList.toggle("active", s === "results" && !!nextPageToken);
-  if (s !== "results") { currentMode = "comments"; }
+  if (s !== "results") { }
 }
 
 function applyFilters() {
