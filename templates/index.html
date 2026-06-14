@@ -228,7 +228,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 @keyframes dotPulse { 0%, 80%, 100% { transform: scale(.3); opacity: .2; } 40% { transform: scale(1); opacity: 1; } }
 
 /* ====== Export Bar ====== */
-.export-bar {
+.export-bar { display: none;
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
   background: var(--export-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
@@ -866,8 +866,8 @@ function setState(s) {
   // 重置卡片动画
   document.querySelectorAll(".video-card").forEach(c => { c.style.animation = "none"; c.offsetHeight; c.style.animation = ""; });
   document.getElementById("paginationWrap").classList.toggle("active", s === "results");
+  document.getElementById("exportBar").style.display = s === "results" ? "" : "none";
   if (s === "results") onStructureChange();
-  if (s !== "results") { }
 }
 
 function applyFilters() {
