@@ -611,14 +611,14 @@ async function doSearch() {
     currentKeyword = kw;
     document.getElementById("sortBy").value = "views_desc";
     currentPage = 0;
-    renderCards();
-    // 标题精准模式：过滤不包含关键词的视频
+    // 标题精准模式：先过滤再渲染
     if (searchMode === "title") {
       var kwLower = kw.toLowerCase();
       allVideos = allVideos.filter(function(v) {
         return v.title.toLowerCase().indexOf(kwLower) !== -1;
       });
     }
+    renderCards();
     setState(allVideos.length ? "results" : "empty");
     var fv = getFilteredVideos();
     document.getElementById("resultCount").textContent = fv.length ? `${fv.length}/${allVideos.length} 个视频` : "";
