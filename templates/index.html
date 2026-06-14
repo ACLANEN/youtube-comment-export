@@ -69,6 +69,25 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .mode-tab-btn { padding: 10px 24px; font-size: 14px; font-weight: 500; color: var(--text-tertiary); cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s; background: none; border-top: none; border-left: none; border-right: none; font-family: inherit; }
 .mode-tab-btn:hover { color: var(--text-secondary); }
 .mode-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ====== Grid Video Card ====== */
+.video-card .card-top { position: relative; }
+.video-card .card-top .thumb-link { display: block; line-height: 0; }
+.video-card .card-top .thumb-link img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; transition: opacity .2s; }
+.video-card .card-top .thumb-link:hover img { opacity: .9; }
+.video-card .card-top .duration-badge { position: absolute; bottom: 6px; right: 6px; background: rgba(0,0,0,.8); color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 500; z-index: 2; }
+.video-card .card-top .cb-overlay { position: absolute; top: 8px; left: 8px; z-index: 2; }
+.video-card .card-top .cb-overlay input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+.video-card .card-top .cc-badge { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.75); color: #fff; font-size: 10px; padding: 3px 8px; border-radius: 4px; font-weight: 600; letter-spacing: .5px; z-index: 2; }
+.video-card .card-body { padding: 14px 16px 16px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.video-card .card-body .title { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.4; text-decoration: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; letter-spacing: -0.2px; }
+.video-card .card-body .title:hover { color: var(--accent); }
+.video-card .card-body .meta { font-size: 12px; color: var(--text-tertiary); display: flex; gap: 10px; align-items: center; }
+.video-card .card-body .stats-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border); }
+.video-card .card-body .stats-row .views { color: var(--text-secondary); font-weight: 500; }
+.video-card .card-body .stats-row .cmts { color: var(--text-tertiary); font-size: 11px; }
+.video-card .card-body .stats-row .cmts.zero { color: #3d3d3d; }
+
 .transcript-segment { display: flex; gap: 12px; padding: 8px 16px; border-bottom: 1px solid rgba(255,255,255,.03); font-size: 13px; align-items: flex-start; }
 .transcript-segment .ts-time { color: var(--accent); font-weight: 600; white-space: nowrap; min-width: 55px; text-decoration: none; }
 .transcript-segment .ts-time:hover { text-decoration: underline; }
@@ -136,10 +155,10 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .filter-row input[type="number"] { width: 70px; }
 
 /* ====== Video Cards ====== */
-.video-list { display: flex; flex-direction: column; gap: 8px; }
-.video-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; transition: border-color .15s; }
-.video-card:hover { border-color: var(--border-hover); }
-.video-card.selected { border-color: var(--accent); background: rgba(35,131,226,.03); }
+.video-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.video-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; transition: all .2s ease; display: flex; flex-direction: column; }
+.video-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+.video-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .card-main { display: flex; align-items: center; padding: 14px 20px; gap: 16px; cursor: pointer; }
 .card-main .cb-wrap input { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
 .card-main .thumb { width: 120px; height: 68px; border-radius: var(--radius-sm); object-fit: cover; background: #1a1a1a; flex-shrink: 0; }
@@ -250,8 +269,658 @@ p, li { font-size: 16px; color: var(--text-secondary); }
   .section { padding: 48px 0; }
   .container { padding: 0 20px; }
   .feature-grid { grid-template-columns: 1fr; }
-  .video-list { grid-template-columns: 1fr; }
-  .video-card .card-top .thumb-link img { height: 180px; }
+  .video-list { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .video-card .card-body { padding: 10px 12px 12px; }
+  .video-card .card-body .title { font-size: 13px; }
+  .video-card:hover { transform: none; }
+  .search-row { flex-direction: column; }
+  .workflow-steps { flex-direction: column; }
+  .workflow-arrow { transform: rotate(90deg); margin: 4px 0; }
+  .export-bar { left: 12px; right: 12px; transform: none; }
+}
+
+/* ====== Tabs ====== */
+.mode-tabs { display: flex; gap: 0; margin-bottom: 20px; }
+.mode-tab { padding: 10px 24px; font-size: 14px; font-weight: 500; color: var(--text-tertiary); cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s; background: none; border-top: none; border-left: none; border-right: none; }
+.mode-tab:hover { color: var(--text-secondary); }
+.mode-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+</style>
+</head>
+<body>
+
+<!-- ====== Activation Gate ====== -->
+<div class="activation-overlay" id="actOverlay">
+  <div class="activation-box">
+    <h3>输入激活码</h3>
+    <p>首次使用需验证激活码</p>
+    <input type="text" id="actInput" placeholder="XXXXXXXX" maxlength="8" autofocus autocomplete="off">
+    <button class="btn btn-primary act-btn" onclick="verifyCode()">验证激活码</button>
+    <div class="act-error" id="actError"></div>
+  </div>
+</div>
+
+
+
+</div>
+
+
+<!-- ====== Nav ====== -->
+<nav class="nav">
+  <div class="container">
+    <div class="logo">Comment Research </div>
+    <a href="#search" class="nav-btn">开始使用</a>
+  </div>
+</nav>
+
+<!-- ====== Hero ====== -->
+<section class="hero">
+  <div class="container">
+    <h1>快速获取 YouTube<br>视频评论数据</h1>
+    <p class="subtitle">获取真实评论与字幕数据，而非 AI 总结。完整保留用户原声，判断权始终属于你。</p>
+    <div class="cta-group">
+      <a href="#search" class="btn btn-primary">开始搜索</a>
+      <button class="btn btn-secondary" onclick="document.getElementById('keyword').value='cfmoto zforce z10';doSearch();document.getElementById('search').scrollIntoView({behavior:'smooth'});">查看示例</button>
+    </div>
+  </div>
+</section>
+
+<!-- ====== Features ====== -->
+<section class="features section">
+  <div class="container">
+    <h2 style="text-align:center">核心能力</h2>
+    <div class="feature-grid">
+      <div class="feature-card"><div class="icon">🔍</div><h3>关键词搜索</h3><p>输入产品名、品牌或话题关键词，快速匹配相关 YouTube 视频（单次最多 50 个）。</p></div>
+      <div class="feature-card"><div class="icon">💬</div><h3>评论抓取</h3><p>获取视频公开评论及回复，每个视频最多 500 条，可按点赞数过滤噪音。</p></div>
+      <div class="feature-card"><div class="icon">📊</div><h3>多格式导出</h3><p>支持 CSV、Excel、JSON 格式，一键导出结构化评论数据。</p></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ====== Search ====== -->
+<section class="section" id="search">
+  <div class="container">
+    <h2 style="text-align:center">开始调研</h2>
+    <p style="text-align:center;color:var(--text-tertiary);margin-bottom:8px;font-size:15px;">输入关键词，按播放量排序，选择视频后导出评论</p>
+    <p style="text-align:center;color:#4d4d4d;margin-bottom:16px;font-size:12px;">📌 每次搜索最多 50 个视频 · 每个视频最多导出 500 条评论 · 评论数为顶层评论（不含回复），可能与 YouTube 显示总数有差异 · 支持评论/字幕/合并导出</p>
+
+    <div class="search-card">
+      <div class="search-row">
+        <input type="text" id="keyword" placeholder="输入关键词，如 cfmoto zforce z10 ..." autofocus>
+        <button class="btn btn-primary" id="searchBtn" onclick="doSearch()">搜索</button>
+        <div class="search-mode">
+          <button class="active" data-mode="broad" onclick="setSearchMode('broad',this)">综合搜索</button>
+          <button data-mode="title" onclick="setSearchMode('title',this)">标题精准</button>
+        </div>
+      </div>
+
+      <div class="empty-hints" id="searchHints">
+        <span onclick="quickSearch('cfmoto zforce z10')">cfmoto zforce z10</span>
+        <span onclick="quickSearch('Can-Am X3 Review')">Can-Am X3 Review</span>
+        <span onclick="quickSearch('UTV Accessories')">UTV Accessories</span>
+        <span onclick="quickSearch('Motorcycle Armor')">Motorcycle Armor</span>
+      </div>
+
+      <div class="loading-block" id="loading"><div class="loading-dots"><span></span><span></span><span></span></div></div>
+
+      <div class="results-area" id="resultsArea">
+        <div class="results-header">
+          <span class="count" id="resultCount"></span>
+          <button class="select-all" id="selectAllBtn" onclick="toggleAll()" style="display:none">全选 / 取消</button>
+        </div>
+        <div class="filter-row" id="filterComments">
+
+          <label>排序</label>
+          <select id="sortBy" onchange="applyFilters()">
+            <option value="views_desc">播放量 ↓</option>
+            <option value="views_asc">播放量 ↑</option>
+            <option value="comments_desc">评论数 ↓</option>
+            <option value="comments_asc">评论数 ↑</option>
+            <option value="date_desc">最新发布</option>
+            <option value="date_asc">最早发布</option>
+          </select>
+
+          <label style="margin-left:8px">播放量</label>
+          <input type="number" id="viewsMin" placeholder="最低" onchange="applyFilters()" style="width:70px">
+          <span style="color:var(--text-tertiary)">—</span>
+          <input type="number" id="viewsMax" placeholder="最高" onchange="applyFilters()" style="width:70px">
+
+          <label style="margin-left:8px">评论数</label>
+          <input type="number" id="cmtMin" placeholder="最低" onchange="applyFilters()" style="width:70px">
+          <span style="color:var(--text-tertiary)">—</span>
+          <input type="number" id="cmtMax" placeholder="最高" onchange="applyFilters()" style="width:70px">
+
+          <label style="margin-left:8px">日期</label>
+          <input type="date" id="dateFrom" onchange="applyFilters()" style="width:120px;font-size:12px">
+          <span style="color:var(--text-tertiary);font-size:12px">—</span>
+          <input type="date" id="dateTo" onchange="applyFilters()" style="width:120px;font-size:12px">
+
+          <button class="btn" style="padding:5px 12px;font-size:12px;margin-left:8px;background:var(--surface-raised);border:1px solid var(--border);color:var(--text-secondary);border-radius:var(--radius-sm);cursor:pointer" onclick="clearFilters()">清除</button>
+
+
+        </div>>
+
+        <div class="video-list" id="videoList"></div>
+        <div class="pagination-wrap" id="paginationWrap">
+          <button class="page-btn" id="prevPage" onclick="goPage(-1)" disabled>‹</button>
+          <span id="pageNumbers"></span>
+          <button class="page-btn" id="nextPage" onclick="goPage(1)" disabled>›</button>
+          <span class="page-info" id="pageInfo"></span>
+          <button class="page-btn" id="loadMoreApi" onclick="loadMoreApi()" style="margin-left:8px;">加载更多</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <h2 style="text-align:center">导出数据格式</h2>
+    <p style="text-align:center;color:var(--text-tertiary);margin-bottom:32px;font-size:15px;">结构化数据，可直接导入 Excel、Google Sheets 或数据分析工具</p>
+    <div class="preview-table-wrap">
+      <table class="preview-table">
+        <thead><tr><th>用户</th><th>评论内容</th><th>点赞数</th><th>发布时间</th></tr></thead>
+        <tbody>
+          <tr><td>@moto_fan</td><td>The new Z10 suspension is a game changer for rock crawling.</td><td>23</td><td>2026-05-15</td></tr>
+          <tr><td>@trail_rider</td><td>Compared to the RZR, the cabin noise is significantly lower.</td><td>17</td><td>2026-05-12</td></tr>
+          <tr><td>@offroad_daily</td><td>Waiting for the 4-seat version. Any ETA on that?</td><td>9</td><td>2026-05-08</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ====== Workflow ====== -->
+<section class="section">
+  <div class="container">
+    <h2 style="text-align:center">使用流程</h2>
+    <div class="workflow-steps">
+      <div class="workflow-step"><div class="step-num">1</div><div class="step-label">搜索视频</div></div>
+      <span class="workflow-arrow">→</span>
+      <div class="workflow-step"><div class="step-num">2</div><div class="step-label">选择目标视频</div></div>
+      <span class="workflow-arrow">→</span>
+      <div class="workflow-step"><div class="step-num">3</div><div class="step-label">选择导出类型</div></div>
+      <span class="workflow-arrow">→</span>
+      <div class="workflow-step"><div class="step-num">4</div><div class="step-label">导出数据</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== Use Cases ====== -->
+<section class="section">
+  <div class="container">
+    <h2 style="text-align:center">谁在用</h2>
+    <p style="text-align:center;color:var(--text-tertiary);margin-bottom:48px;font-size:15px;">无论你是哪个角色，真实用户声音都是最好的决策依据</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon">📦</div>
+        <h3>亚马逊运营</h3>
+        <p>从评论中发现产品痛点与机会。用户抱怨风噪？储物空间不足？这些都是下一个爆款的起点。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📋</div>
+        <h3>产品经理</h3>
+        <p>评论区比调研问卷更真实。找到用户最常提到的问题、最在意的功能、最容易不满的环节。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📊</div>
+        <h3>市场研究</h3>
+        <p>收集真实用户语言，观察讨论热点。评论本身就是公开市场反馈的一部分。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+
+<!-- ====== Changelog ====== -->
+<section class="section" style="padding-bottom:20px">
+  <div class="container">
+    <h2 style="text-align:center;margin-bottom:32px">更新日志</h2>
+    <div style="max-width:600px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 32px">
+            <div style="margin-bottom:20px">
+        <div style="font-size:12px;color:var(--accent);font-weight:600;margin-bottom:4px">2026-06-02</div>
+        <ul style="font-size:13px;color:var(--text-secondary);padding-left:18px;line-height:1.8">
+          <li>新增搜索模式：综合搜索 / 标题精准</li>
+          <li>筛选升级：播放量、评论数、日期范围</li>
+          <li>全选优化：仅选中可见视频</li>
+          <li>评论抓取上限提升至 500 条/视频</li>
+          <li>激活码系统上线：/admin 管理面板</li>
+          <li>导出栏常驻底部</li>
+        </ul>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--text-tertiary);font-weight:600;margin-bottom:4px">2026-05-30</div>
+        <ul style="font-size:13px;color:var(--text-secondary);padding-left:18px;line-height:1.8">
+          <li>Comment Research 正式上线</li>
+          <li>支持关键词搜索、评论抓取、CSV/Excel/JSON 导出</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== Footer ====== -->
+<footer class="footer">
+  <div class="container">
+    <p class="text-sm"><span class="brand">Comment Research</span> <span class="divider">·</span> Powered by YouTube</p>
+    <p class="text-sm" style="margin-top:8px;color:#4d4d4d;">真实评论 > AI 总结  ·  完整数据 > 预设结论  ·  判断权属于使用者</p>
+  </div>
+</footer>
+
+<!-- ====== Export Bar ====== -->
+<div class="export-bar" id="exportBar">
+  <div class="export-normal" id="exportNormal">
+    <span class="badge" id="selectedCount">0</span>
+    <span class="label">个视频已选</span>
+    <span class="stat-item" id="exportStats" style="display:none"></span>
+    <div class="export-controls">
+      <select id="exportType" style="width:auto;font-size:12px" onchange="onExportTypeChange()" title="选择导出内容类型">
+        <option value="comments">📝 仅评论</option>
+        <option value="transcript">📃 仅字幕</option>
+        <option value="both">📊 评论+字幕</option>
+      </select>
+      <select id="exportStructure" style="width:auto;font-size:12px" onchange="onStructureChange()" title="选择数据组织方式">
+        <option value="flat">📋 统一汇总</option>
+        <option value="per_video">📑 按视频分表</option>
+      </select>
+      <select id="exportFormat" style="width:auto;font-size:12px" title="选择文件格式">
+        <option value="csv">CSV</option>
+        <option value="xlsx">Excel (.xlsx)</option>
+        <option value="json">JSON</option>
+      </select>
+      <select id="minLikes" style="width:auto;font-size:12px" onchange="updateUI()" title="仅导出点赞数≥此值的评论">
+        <option value="0">全部评论</option>
+        <option value="5">≥5 赞</option>
+        <option value="10">≥10 赞</option>
+        <option value="50">≥50 赞</option>
+      </select>
+      <button class="btn btn-primary" id="exportActionBtn" onclick="doExport()" disabled>⬇ 导出</button>
+    </div>
+    <div id="exportGuide"></div>
+  </div>
+
+</div>
+
+<script>
+// ── Activation Code Gate ──
+(function() {
+  var overlay = document.getElementById("actOverlay");
+  var input = document.getElementById("actInput");
+  var error = document.getElementById("actError");
+
+  overlay.classList.add("hidden");
+
+  input.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") verifyCode();
+  });
+})();
+
+function verifyCode() {
+  var code = document.getElementById("actInput").value.trim().toUpperCase();
+  var error = document.getElementById("actError");
+  if (!code) { error.textContent = "请输入激活码"; return; }
+  if (code.length < 4) { error.textContent = "激活码格式不正确"; return; }
+
+  fetch("/api/verify-code", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code: code }),
+  }).then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      sessionStorage.setItem("act_verified", "1");
+      document.getElementById("actOverlay").classList.add("hidden");
+    } else {
+      error.textContent = d.error || "激活失败";
+    }
+  }).catch(function() {
+    error.textContent = "网络错误，请重试";
+  });
+}
+
+</script>
+
+<script>
+let nextPageToken = "";
+let currentKeyword = "";
+
+async function quickSearch(kw) {
+  document.getElementById("keyword").value = kw;
+  doSearch();
+  document.getElementById("search").scrollIntoView({behavior:"smooth"});
+}
+
+
+
+var PAGE_SIZE = 20;
+var allVideos = [];
+var currentPage = 0;
+var totalApiPages = 1;
+
+var searchMode = "broad";
+function setSearchMode(mode, btn) {
+  searchMode = mode;
+  document.querySelectorAll(".search-mode button").forEach(function(b) { b.classList.remove("active"); });
+  btn.classList.add("active");
+}
+
+async function doSearch() {
+  const kw = document.getElementById("keyword").value.trim();
+  if (!kw) return;
+  setState("loading");
+  try {
+    const resp = await fetch(`/api/search?q=${encodeURIComponent(kw)}`);
+    const data = await resp.json();
+    if (data.error) { setState("empty"); return; }
+    allVideos = data.videos || [];
+    nextPageToken = data.nextPageToken || "";
+    currentKeyword = kw;
+    currentPage = 0;
+    totalApiPages = 1;
+    document.getElementById("sortBy").value = "views_desc";
+    if (searchMode === "title") {
+      var kwLower = kw.toLowerCase();
+      allVideos = allVideos.filter(function(v) {
+        return v.title.toLowerCase().indexOf(kwLower) !== -1;
+      });
+    }
+    setState(allVideos.length ? "results" : "empty");
+    var fv = getFilteredVideos();
+    document.getElementById("resultCount").textContent = fv.length ? `${fv.length}/${allVideos.length} 个视频` : "";
+    document.getElementById("searchHints").style.display = allVideos.length ? "none" : "flex";
+    applySort();
+    renderCards();
+  } catch (e) { setState("empty"); }
+}
+
+function renderCards() {
+  const container = document.getElementById("videoList");
+  const start = currentPage * PAGE_SIZE;
+  const pageVideos = allVideos.slice(start, start + PAGE_SIZE);
+  
+  const newHTML = pageVideos.map((v, i) => {
+    const globalIdx = allVideos.indexOf(v);
+    return `
+        <div class="video-card" id="card-${globalIdx}" style="animation-delay:${i*0.04}s">
+      <div class="card-top">
+        <div class="cb-overlay" onclick="event.stopPropagation()">
+          <input type="checkbox" value="${globalIdx}" onchange="onCheck(${globalIdx}, this.checked)">
+        </div>
+        ${v.has_captions ? '<span class="cc-badge" title="有字幕">CC</span>' : ''}
+        ${v.duration ? '<span class="duration-badge">' + v.duration + '</span>' : ''}
+        <a class="thumb-link" href="https://www.youtube.com/watch?v=${v.video_id}" target="_blank" title="${esc(v.title)}">
+          <img src="${v.thumbnail}" loading="lazy" onerror="this.style.opacity='0'">
+        </a>
+      </div>
+      <div class="card-body">
+        <a class="title" href="https://www.youtube.com/watch?v=${v.video_id}" target="_blank" title="${esc(v.title)}">${esc(v.title)}</a>
+        <div class="meta">
+          <span>${esc(v.channel)}</span>
+          <span>${v.published_at ? v.published_at.slice(0,10) : ''}</span>
+        </div>
+        <div class="stats-row">
+          <span class="views">${fmt(v.view_count)} 次播放</span>
+          <span class="cmts ${v.comment_count===0?'zero':''}">${v.comment_count===0?'暂无评论':fmt(v.comment_count)+' 条评论'}</span>
+        </div>
+      </div>
+    </div>
+  `;}).join("");ang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comment Research by Fynn</title>
+<meta name="description" content="快速获取 YouTube 视频评论数据。搜索视频、抓取评论、一键导出 CSV/Excel，用真实用户反馈支持市场调研。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>💬</text></svg>">
+<style>
+/* ====== Reset & Variables ====== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0d0d0d; --surface: #141414; --surface-raised: #1a1a1a;
+  --border: #262626; --border-hover: #333;
+  --text: #f5f5f5; --text-secondary: #a3a3a3; --text-tertiary: #737373;
+  --accent: #2383e2; --accent-hover: #1a6fc4; --accent-subtle: rgba(35,131,226,.08);
+  --green: #30a46c; --red: #e5484d;
+  --radius-sm: 6px; --radius: 8px; --radius-lg: 12px;
+}
+html { scroll-behavior: smooth; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  background: var(--bg); color: var(--text); line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+h1 { font-size: 48px; font-weight: 700; letter-spacing: -1.5px; line-height: 1.1; }
+h2 { font-size: 32px; font-weight: 600; letter-spacing: -0.8px; }
+h3 { font-size: 18px; font-weight: 600; }
+p, li { font-size: 16px; color: var(--text-secondary); }
+.container { max-width: 1080px; margin: 0 auto; padding: 0 32px; }
+.section { padding: 80px 0; }
+
+/* ====== Nav ====== */
+.nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(13,13,13,.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
+.nav .container { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+.nav .logo { font-weight: 700; font-size: 15px; color: var(--text); letter-spacing: -0.3px; }
+.nav .logo span { color: var(--accent); font-weight: 600; }
+.nav .nav-btn { font-size: 13px; color: var(--text-secondary); text-decoration: none; padding: 6px 16px; border-radius: var(--radius-sm); transition: all .15s; border: 1px solid var(--border); }
+.nav .nav-btn:hover { background: var(--surface-raised); color: var(--text); }
+
+/* ====== Hero ====== */
+.hero { padding: 160px 0 80px; text-align: center; }
+.hero h1 { margin-bottom: 16px; max-width: 720px; margin-left: auto; margin-right: auto; }
+.hero .subtitle { font-size: 18px; color: var(--text-secondary); max-width: 540px; margin: 0 auto 40px; line-height: 1.6; }
+.hero .cta-group { display: flex; gap: 12px; justify-content: center; align-items: center; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: var(--radius); font-size: 15px; font-weight: 600; cursor: pointer; transition: all .15s; text-decoration: none; border: none; letter-spacing: -0.2px; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-secondary { background: var(--surface-raised); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--border-hover); background: #1f1f1f; }
+
+/* ====== Features ====== */
+.feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 48px; }
+.feature-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; transition: border-color .15s; }
+.feature-card:hover { border-color: var(--border-hover); }
+.feature-card .icon { font-size: 24px; margin-bottom: 16px; }
+.feature-card h3 { margin-bottom: 8px; }
+.feature-card p { font-size: 14px; color: var(--text-tertiary); line-height: 1.6; }
+
+
+/* ====== Search Mode ====== */
+.search-mode { display: flex; gap: 8px; margin-top: 12px; }
+.search-mode button { font-size: 12px; padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg); color: var(--text-tertiary); cursor: pointer; transition: all .15s; font-family: inherit; }
+.search-mode button.active { border-color: var(--accent); background: var(--accent-subtle); color: var(--accent); }
+
+
+/* ====== Mode Tabs ====== */
+.mode-tabs { display: flex; gap: 0; margin-bottom: 20px; }
+.mode-tab-btn { padding: 10px 24px; font-size: 14px; font-weight: 500; color: var(--text-tertiary); cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s; background: none; border-top: none; border-left: none; border-right: none; font-family: inherit; }
+.mode-tab-btn:hover { color: var(--text-secondary); }
+.mode-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.transcript-segment { display: flex; gap: 12px; padding: 8px 16px; border-bottom: 1px solid rgba(255,255,255,.03); font-size: 13px; align-items: flex-start; }
+.transcript-segment .ts-time { color: var(--accent); font-weight: 600; white-space: nowrap; min-width: 55px; text-decoration: none; }
+.transcript-segment .ts-time:hover { text-decoration: underline; }
+.transcript-segment .ts-text { color: var(--text-secondary); line-height: 1.6; }
+
+/* ====== Search Section ====== */
+.search-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; margin-top: 32px; }
+.search-row { display: flex; gap: 12px; }
+.search-row input { flex: 1; padding: 14px 18px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 16px; background: var(--bg); color: var(--text); outline: none; transition: border-color .15s; }
+.search-row input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
+.search-row input::placeholder { color: #404040; }
+.search-row button { padding: 14px 28px; }
+
+/* ====== Empty ====== */
+.empty-hints { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; justify-content: center; }
+.empty-hints span { font-size: 13px; color: var(--text-tertiary); background: var(--bg); padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); cursor: pointer; transition: all .15s; }
+.empty-hints span:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ====== Card Entrance Animation ====== */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.video-card { animation: cardIn .35s ease both; }
+
+/* ====== Toast ====== */
+.toast {
+  position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+  background: var(--surface-raised); border: 1px solid var(--green);
+  color: var(--green); padding: 12px 28px; border-radius: var(--radius);
+  font-size: 14px; font-weight: 500; z-index: 200;
+  animation: toastIn .3s ease, toastOut .3s ease 2s forwards;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+@keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(12px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+@keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* ====== Step Indicator ====== */
+.export-steps { display: flex; gap: 24px; font-size: 12px; color: var(--text-tertiary); }
+.export-steps .step { display: flex; align-items: center; gap: 6px; }
+.export-steps .step .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: all .3s; }
+.export-steps .step.active .dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.export-steps .step.done .dot { background: var(--green); }
+.export-steps .step.done { color: var(--green); }
+
+/* ====== Export Guide ====== */
+#exportGuide { font-size: 11px; color: #4d4d4d; margin-top: 4px; line-height: 1.5; }
+#exportGuide span { color: var(--accent); }
+.export-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+
+/* ====== Results ====== */
+.results-area { display: none; margin-top: 24px; }
+.results-area.active { display: block; }
+.results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; min-height: 32px; }
+.results-header .count { font-size: 14px; color: var(--text-tertiary); }
+.results-header .select-all { font-size: 13px; color: var(--accent); cursor: pointer; background: none; border: none; }
+.results-header .select-all:hover { text-decoration: underline; }
+
+/* ====== Filter Row ====== */
+.filter-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; padding: 10px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; flex-wrap: wrap; }
+.filter-row label { color: var(--text-tertiary); }
+.filter-row select, .filter-row input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: var(--radius-sm); font-size: 13px; outline: none; }
+.filter-row select:focus, .filter-row input:focus { border-color: var(--accent); }
+.filter-row input[type="number"] { width: 70px; }
+
+/* ====== Video Cards ====== */
+.video-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.video-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; transition: all .2s ease; display: flex; flex-direction: column; }
+.video-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+.video-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.card-main { display: flex; align-items: center; padding: 14px 20px; gap: 16px; cursor: pointer; }
+.card-main .cb-wrap input { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
+.card-main .thumb { width: 120px; height: 68px; border-radius: var(--radius-sm); object-fit: cover; background: #1a1a1a; flex-shrink: 0; }
+.card-main .info { flex: 1; min-width: 0; overflow: hidden; }
+.card-main .info .title { display: block; font-size: 15px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; text-decoration: none; }
+.card-main .info .meta { font-size: 13px; color: var(--text-tertiary); display: flex; gap: 16px; align-items: center; }
+.card-main .info .meta .duration { background: #1a1a1a; padding: 1px 6px; border-radius: 3px; font-size: 11px; color: #999; }
+.card-main .stats { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 13px; }
+.card-main .stats .views { color: var(--text-secondary); font-weight: 500; }
+.card-main .stats .cmts { color: var(--text-tertiary); }
+.card-main .stats .cmts.zero { color: #3d3d3d; }
+.card-main .expand-arrow { flex-shrink: 0; color: #3d3d3d; font-size: 14px; transition: transform .2s; }
+.video-card.expanded .expand-arrow { transform: rotate(180deg); color: var(--accent); }
+
+.card-main .yt-link { color: var(--accent); font-size: 13px; text-decoration: none; flex-shrink: 0; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); transition: all .15s; display: flex; align-items: center; gap: 4px; }
+.card-main .yt-link:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.card-main .thumb-link { flex-shrink: 0; display: block; }
+.card-main .thumb-link img { transition: opacity .15s; }
+.card-main .thumb-link:hover img { opacity: .8; }
+
+
+/* Comment Preview */
+.comment-preview { display: none; border-top: 1px solid var(--border); }
+.video-card.expanded .comment-preview { display: block; max-height: 440px; overflow-y: auto; }
+.comment-preview .preview-header { padding: 12px 20px 8px; font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .5px; }
+.comment-preview .c-item { display: flex; gap: 12px; padding: 10px 20px; border-bottom: 1px solid rgba(255,255,255,.02); font-size: 13px; }
+.comment-preview .c-item:last-child { border-bottom: none; }
+.comment-preview .c-avatar { width: 26px; height: 26px; border-radius: 50%; background: #1e1e1e; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--text-tertiary); }
+.comment-preview .c-body { flex: 1; min-width: 0; }
+.comment-preview .c-author { font-weight: 600; color: #ccc; margin-bottom: 2px; font-size: 12px; }
+.comment-preview .c-text { color: var(--text-secondary); line-height: 1.5; word-break: break-word; }
+.comment-preview .c-likes { color: #4a4a4a; font-size: 11px; flex-shrink: 0; margin-left: 8px; }
+.comment-preview .more-hint { text-align: center; color: #3d3d3d; font-size: 11px; padding: 10px 0; }
+
+/* ====== Load More ====== */
+.pagination-wrap { display: none; justify-content: center; align-items: center; gap: 4px; padding: 24px 0; flex-wrap: wrap; }
+.pagination-wrap.active { display: flex; }
+.page-btn { min-width: 36px; height: 36px; background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; transition: all .15s; display: flex; align-items: center; justify-content: center; font-family: inherit; }
+.page-btn:hover { border-color: var(--accent); color: var(--accent); }
+.page-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.page-btn:disabled { opacity: .3; cursor: not-allowed; }
+.page-info { font-size: 12px; color: var(--text-tertiary); margin: 0 8px; }
+
+/* ====== Loading ====== */
+.loading-block { display: none; text-align: center; padding: 48px 0; }
+.loading-block.active { display: block; }
+.loading-dots { display: inline-flex; gap: 5px; }
+.loading-dots span { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: dotPulse 1.4s infinite ease-in-out; }
+.loading-dots span:nth-child(1) { animation-delay: 0s; }
+.loading-dots span:nth-child(2) { animation-delay: .16s; }
+.loading-dots span:nth-child(3) { animation-delay: .32s; }
+@keyframes dotPulse { 0%, 80%, 100% { transform: scale(.3); opacity: .2; } 40% { transform: scale(1); opacity: 1; } }
+
+/* ====== Export Bar ====== */
+.export-bar {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  background: var(--surface-raised); border: 1px solid var(--border-hover);
+  border-radius: var(--radius-lg); padding: 14px 24px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.5);
+  z-index: 100;
+}
+.export-bar .badge { background: var(--accent); color: #fff; padding: 2px 10px; border-radius: 4px; font-size: 13px; font-weight: 600; }
+.export-bar .label { color: var(--text-secondary); font-size: 13px; }
+.export-bar .stat-item { font-size: 12px; color: var(--text-tertiary); }
+.export-bar .stat-item strong { color: var(--text-secondary); }
+.export-bar .export-normal { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.export-bar select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: var(--radius-sm); font-size: 13px; outline: none; cursor: pointer; }
+
+/* ====== Data Preview ====== */
+.preview-table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.preview-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.preview-table th { text-align: left; padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .5px; }
+.preview-table td { padding: 12px 20px; border-bottom: 1px solid rgba(255,255,255,.03); color: var(--text-secondary); }
+.preview-table tr:last-child td { border-bottom: none; }
+.preview-table td:first-child { color: var(--text); font-weight: 500; }
+
+/* ====== Workflow ====== */
+.workflow-steps { display: flex; justify-content: center; align-items: center; gap: 0; flex-wrap: wrap; margin-top: 48px; }
+.workflow-step { text-align: center; padding: 0 24px; }
+.workflow-step .step-num { width: 40px; height: 40px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-weight: 700; font-size: 15px; color: var(--accent); }
+.workflow-step .step-label { font-size: 14px; color: var(--text-secondary); }
+.workflow-arrow { color: var(--border-hover); font-size: 20px; padding: 0 8px; margin-bottom: 28px; }
+
+/* ====== Footer ====== */
+.footer { border-top: 1px solid var(--border); padding: 40px 0; text-align: center; }
+.footer .text-sm { font-size: 13px; }
+.footer .brand { color: var(--text); font-weight: 600; }
+.footer .divider { margin: 0 10px; color: #2d2d2d; }
+
+/* ====== Responsive ====== */
+
+/* ====== Activation Gate ====== */
+.activation-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+.activation-overlay.hidden { display: none; }
+.activation-box { text-align: center; max-width: 380px; padding: 48px 40px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.activation-box h3 { margin-bottom: 8px; }
+.activation-box p { font-size: 14px; color: var(--text-tertiary); margin-bottom: 24px; }
+.activation-box input { width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 15px; background: var(--bg); color: var(--text); outline: none; text-align: center; letter-spacing: 3px; text-transform: uppercase; transition: border-color .15s; font-family: inherit; }
+.activation-box input:focus { border-color: var(--accent); }
+.activation-box .act-error { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 20px; }
+.activation-box .act-btn { margin-top: 16px; width: 100%; }
+
+@media (max-width: 768px) {
+  h1 { font-size: 32px; letter-spacing: -0.8px; }
+  h2 { font-size: 24px; }
+  .hero { padding: 120px 0 48px; }
+  .section { padding: 48px 0; }
+  .container { padding: 0 20px; }
+  .feature-grid { grid-template-columns: 1fr; }
+  .video-list { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .video-card .card-body { padding: 10px 12px 12px; }
+  .video-card .card-body .title { font-size: 13px; }
+  .video-card:hover { transform: none; }
   .search-row { flex-direction: column; }
   .workflow-steps { flex-direction: column; }
   .workflow-arrow { transform: rotate(90deg); margin: 4px 0; }
