@@ -78,7 +78,7 @@ p, li { font-size: 16px; color: var(--text-secondary); }
 .video-card .card-top .duration-badge { position: absolute; bottom: 6px; right: 6px; background: rgba(0,0,0,.8); color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 500; z-index: 2; }
 .video-card .card-top .cb-overlay { position: absolute; top: 8px; left: 8px; z-index: 2; }
 .video-card .card-top .cb-overlay input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
-.video-card .card-top .cc-badge { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.75); color: #fff; font-size: 10px; padding: 3px 8px; border-radius: 4px; font-weight: 600; letter-spacing: .5px; z-index: 2; }
+.video-card .card-top .cc-badge { position: absolute; top: 8px; right: 8px; background: rgba(35,131,226,.9); color: #fff; font-size: 11px; padding: 4px 9px; border-radius: 4px; font-weight: 700; letter-spacing: .5px; z-index: 2; }
 .video-card .card-body { padding: 14px 16px 16px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
 .video-card .card-body .title { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.4; text-decoration: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; letter-spacing: -0.2px; }
 .video-card .card-body .title:hover { color: var(--accent); }
@@ -657,7 +657,7 @@ function renderCards() {
         </div>
         <div class="stats-row">
           <span class="views">${fmt(v.view_count)} 次播放</span>
-          <span class="cmts ${v.comment_count===0?'zero':''}">${v.comment_count===0?'暂无评论':fmt(v.comment_count)+' 条评论'}</span>
+          <span class="cmts ${v.comment_count===0?'zero':''}">${v.comment_count===0?'暂无评论':fmt(v.comment_count)+' 条评论'}${v.has_captions ? ' · 有字幕' : ''}</span>
         </div>
       </div>
     </div>
@@ -1278,43 +1278,6 @@ async function doSearch() {
   } catch (e) { setState("empty"); }
 }
 
-function renderCards() {
-  const container = document.getElementById("videoList");
-  const start = currentPage * PAGE_SIZE;
-  const pageVideos = allVideos.slice(start, start + PAGE_SIZE);
-  
-  const newHTML = pageVideos.map((v, i) => {
-    const globalIdx = allVideos.indexOf(v);
-    return `
-    <div class="video-card" id="card-${globalIdx}" style="animation-delay:${i*0.03}s">
-      <div class="card-top">
-        <div class="cb-overlay" onclick="event.stopPropagation()">
-          <input type="checkbox" value="${globalIdx}" ${v.comment_count===0?'disabled':''} onchange="onCheck(${globalIdx}, this.checked)">
-        </div>
-        ${v.has_captions ? '<span class="cc-badge" title="有字幕">CC</span>' : ''}
-        <a class="thumb-link" href="https://www.youtube.com/watch?v=${v.video_id}" target="_blank" title="在 YouTube 打开">
-          <img src="${v.thumbnail}" loading="lazy" onerror="this.style.opacity='0'">
-        </a>
-      </div>
-      <div class="card-body">
-        <a class="title" href="https://www.youtube.com/watch?v=${v.video_id}" target="_blank" title="${esc(v.title)}">${esc(v.title)}</a>
-        <div class="meta">
-          <span>${esc(v.channel)}</span>
-          <span>${v.published_at ? v.published_at.slice(0,10) : ''}</span>
-          ${v.duration ? '<span class="duration">' + v.duration + '</span>' : ''}
-        </div>
-        <div class="stats-row">
-          <span class="views">${fmt(v.view_count)} 次播放</span>
-          <span class="cmts ${v.comment_count===0?'zero':''}">${v.comment_count===0?'暂无评论':fmt(v.comment_count)+' 条评论'}</span>
-        </div>
-      </div>
-    </div>
-  `;}).join("");
-  
-  container.innerHTML = newHTML;
-  updatePagination();
-  updateUI();
-}
 
 function onCheck(i, checked) { var card = document.getElementById("card-" + i); if (card) card.classList.toggle("selected", checked); updateUI(); }
 

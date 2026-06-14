@@ -525,6 +525,8 @@ def api_search():
     videos = []
     video_ids = []
     for item in data.get("items", []):
+        if item.get("id", {}).get("kind") != "youtube#video":
+            continue
         s = item["snippet"]
         vid = item["id"]["videoId"]
         video_ids.append(vid)
