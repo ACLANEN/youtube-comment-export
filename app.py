@@ -53,6 +53,44 @@ def _update_codes(fn):
 
 # 确保 /data 目录存在
 # 启动时初始化
+
+@app.route("/setup", methods=["GET", "POST"])
+def setup_page():
+    """首次配置 API Key"""
+    if request.method == "POST":
+        key = request.form.get("api_key", "").strip()
+        if key:
+            with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"), "w") as f:
+                f.write(f"YOUTUBE_API_KEY={key}\n")
+            # Reload
+            global API_KEY
+            API_KEY = key
+            return redirect("/")
+    return """<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>初次配置 - Comment Research</title>
+<style>
+body{font-family:-apple-system,sans-serif;background:#f5f5f7;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+.box{background:#fff;padding:48px;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08);max-width:420px;width:100%;text-align:center}
+h2{margin:0 0 8px;font-size:24px}p{color:#666;margin:0 0 24px;font-size:14px}
+input{width:100%;padding:14px;border:1px solid #ddd;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box}
+input:focus{border-color:#3B6FD4}
+button{margin-top:16px;width:100%;padding:14px;background:#3B6FD4;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer}
+button:hover{background:#2B5AB8}
+.hint{font-size:12px;color:#999;margin-top:16px}
+</style></head>
+<body><div class="box">
+<h2>🔑 配置 API Key</h2>
+<p>请输入你的 YouTube Data API v3 Key</p>
+<form method="post">
+<input type="text" name="api_key" placeholder="AIzaSy..." autofocus autocomplete="off">
+<button type="submit">开始使用</button>
+</form>
+<p class="hint">Key 仅保存在本地，不会上传<br>获取方式：Google Cloud Console → YouTube Data API v3</p>
+</div></body></html>"""
+
+
+
 if not os.path.exists(CODES_FILE):
     _save_codes({})
 
@@ -532,6 +570,8 @@ def api_translate():
 
 @app.route("/")
 def index():
+    if not API_KEY:
+        return redirect("/setup")
     return render_template("index.html")
 
 
