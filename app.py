@@ -15,6 +15,7 @@ import xml.etree.ElementTree as ET
 import glob as _glob
 
 from flask import Flask, render_template, request, jsonify, send_file, redirect
+from deep_translator import GoogleTranslator
 
 app = Flask(__name__)
 
@@ -494,6 +495,37 @@ def api_export_transcript():
         return send_file(io.BytesIO(buf.getvalue().encode("utf-8")), mimetype="text/csv", as_attachment=True, download_name=f"{filename}.csv")
 
 
+
+# ═══════════════════════════════════════
+#  翻译 API
+# ═══════════════════════════════════════
+
+@app.route("/api/translate", methods=["POST"])
+def api_translate():
+    """批量翻译文本"""
+    data = request.get_json()
+    texts = data.get("texts", [])
+    target = data.get("target", "zh-CN")
+    if not texts:
+        return jsonify({"error": "没有待翻译文本"}), 400
+    try:
+        translator = GoogleTranslator(source="auto", target=target)
+        results = []
+        for text in texts:
+            if not text or not text.strip():
+                results.append("")
+                continue
+            try:
+                # 限制单条长度避免超时
+                chunk = text[:1500]
+                results.append(translator.translate(chunk))
+            except Exception:
+                results.append(text)  # 翻译失败保留原文
+        return jsonify({"translations": results, "target": target})
+    except Exception as e:
+        return jsonify({"error": f"翻译服务不可用: {str(e)}"}), 500
+
+
 # ═══════════════════════════════════════
 #  主页面
 # ═══════════════════════════════════════
@@ -808,11 +840,12 @@ def api_export_stats():
 
 @app.route("/api/export/combined", methods=["POST"])
 def api_export_combined():
-    """合并导出：评论 + 字幕，按视频分组"""
+    """合并导出：评论 + 字幕，按视频分组，可选翻译"""
     data = request.get_json()
     video_ids = data.get("video_ids", [])
     fmt = data.get("format", "csv")
     min_likes = int(data.get("min_likes", 0))
+    translate_to = data.get("translate_to", "")
 
     if not video_ids:
         return jsonify({"error": "请选择至少一个视频"}), 400
@@ -868,6 +901,24 @@ def api_export_combined():
         if video["comments"] or video["transcripts"]:
             videos.append(video)
 
+    # ── 翻译 ──
+    if translate_to and videos:
+        try:
+            translator = GoogleTranslator(source="auto", target=translate_to)
+            for v in videos:
+                for c in v.get("comments", []):
+                    try:
+                        c["text_translated"] = translator.translate(c["text"][:1500])
+                    except Exception:
+                        c["text_translated"] = c["text"]
+                for t in v.get("transcripts", []):
+                    try:
+                        t["text_translated"] = translator.translate(t["text"][:1500])
+                    except Exception:
+                        t["text_translated"] = t["text"]
+        except Exception:
+            pass  # 翻译失败不影响导出
+
     if not videos:
         return jsonify({"error": "所选视频暂无数据"}), 404
 
@@ -903,15 +954,25 @@ def _export_combined_csv(videos, filename, structure="flat"):
                     writer.writerow([t["timestamp"], t["duration"], t["text"]])
             writer.writerow([])
     else:
-        writer.writerow(["视频标题", "视频链接", "频道", "视频播放量", "视频发布时间",
-                          "类型", "作者/时间戳", "内容", "点赞/时长", "发布时间"])
+        has_trans = any(c.get("text_translated") for v in videos for c in v.get("comments",[])) or any(t.get("text_translated") for v in videos for t in v.get("transcripts",[]))
+        headers = ["视频标题", "视频链接", "频道", "视频播放量", "视频发布时间",
+                    "类型", "作者/时间戳", "内容", "点赞/时长", "发布时间"]
+        if has_trans:
+            headers.insert(8, "翻译")
+        writer.writerow(headers)
         for v in videos:
             for c in v["comments"]:
-                writer.writerow([v["title"], v["url"], v["channel"], v["views"], v["published_at"],
-                                  "评论", c["author"], c["text"], c["likes"], c["published_at"]])
+                row = [v["title"], v["url"], v["channel"], v["views"], v["published_at"],
+                        "评论", c["author"], c["text"], c["likes"], c["published_at"]]
+                if has_trans:
+                    row.insert(8, c.get("text_translated", ""))
+                writer.writerow(row)
             for t in v["transcripts"]:
-                writer.writerow([v["title"], v["url"], v["channel"], v["views"], v["published_at"],
-                                  "字幕", t["timestamp"], t["text"], t["duration"], ""])
+                row = [v["title"], v["url"], v["channel"], v["views"], v["published_at"],
+                        "字幕", t["timestamp"], t["text"], t["duration"], ""]
+                if has_trans:
+                    row.insert(8, t.get("text_translated", ""))
+                writer.writerow(row)
 
     buf.seek(0)
     return send_file(io.BytesIO(buf.getvalue().encode("utf-8")), mimetype="text/csv",
