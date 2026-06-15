@@ -57,10 +57,11 @@ if not os.path.exists(CODES_FILE):
     _save_codes({})
 
 
-def _youtube_get(path: str) -> dict:
-    if not API_KEY:
+def _youtube_get(path: str, key_override: str = None) -> dict:
+    key = key_override or API_KEY
+    if not key:
         raise RuntimeError("YOUTUBE_API_KEY 未配置")
-    url = f"{BASE_URL}/{path}&key={API_KEY}"
+    url = f"{BASE_URL}/{path}&key={key}"
     resp = requests.get(url, timeout=15)
     resp.raise_for_status()
     return resp.json()
@@ -537,11 +538,9 @@ def index():
 
 @app.route("/api/search")
 def api_search():
-    if not API_KEY:
-        return jsonify({"error": "服务未配置 API Key"}), 500
-
     keyword = request.args.get("q", "").strip()
     page_token = request.args.get("pageToken", "")
+    user_key = request.args.get("key", "").strip()
     if not keyword:
         return jsonify({"error": "关键词不能为空"}), 400
 
@@ -550,7 +549,7 @@ def api_search():
         path += f"&pageToken={page_token}"
 
     try:
-        data = _youtube_get(path)
+        data = _youtube_get(path, key_override=user_key or None)
     except Exception as e:
         return jsonify({"error": f"搜索失败: {str(e)}"}), 500
 
@@ -575,7 +574,8 @@ def api_search():
 
     try:
         stats_data = _youtube_get(
-            f"videos?part=statistics,contentDetails&id={','.join(video_ids)}"
+            f"videos?part=statistics,contentDetails&id={','.join(video_ids)}",
+            key_override=user_key or None
         )
     except Exception as e:
         return jsonify({"error": f"统计失败: {str(e)}"}), 500
@@ -606,7 +606,7 @@ def api_search():
     })
 
 
-def _fetch_comments(vid: str, min_likes: int = 0, max_pages: int = 5) -> list[dict]:
+def _fetch_comments(vid: str, min_likes: int = 0, max_pages: int = 5, key_override: str = None) -> list[dict]:
     """拉取评论，支持翻页（每页100条，最多5页=500条）"""
     comments = []
     page_token = ""
@@ -615,7 +615,7 @@ def _fetch_comments(vid: str, min_likes: int = 0, max_pages: int = 5) -> list[di
             path = f"commentThreads?part=snippet&videoId={vid}&maxResults=100&order=relevance"
             if page_token:
                 path += f"&pageToken={page_token}"
-            cdata = _youtube_get(path)
+            cdata = _youtube_get(path, key_override=user_key or None)
         except Exception:
             break
         for item in cdata.get("items", []):
@@ -652,6 +652,7 @@ def api_export():
     fmt = data.get("format", "csv")
     min_likes = int(data.get("min_likes", 0))
     structure = data.get("structure", "flat")
+    user_key = data.get("api_key", "").strip() or None
 
     if not video_ids:
         return jsonify({"error": "请选择至少一个视频"}), 400
@@ -662,7 +663,7 @@ def api_export():
 
     for vid in video_ids:
         try:
-            vdata = _youtube_get(f"videos?part=snippet,statistics&id={vid}")
+            vdata = _youtube_get(f"videos?part=snippet,statistics&id={vid}", key_override=user_key)
         except Exception:
             continue
         items = vdata.get("items", [])
@@ -675,7 +676,7 @@ def api_export():
         views = info["statistics"].get("viewCount", 0)
         url = f"https://www.youtube.com/watch?v={vid}"
 
-        comments = _fetch_comments(vid, min_likes=min_likes)
+        comments = _fetch_comments(vid, min_likes=min_likes, key_override=user_key)
         if not comments:
             continue
 
@@ -846,6 +847,7 @@ def api_export_combined():
     fmt = data.get("format", "csv")
     min_likes = int(data.get("min_likes", 0))
     translate_to = data.get("translate_to", "")
+    user_key = data.get("api_key", "").strip() or None
 
     if not video_ids:
         return jsonify({"error": "请选择至少一个视频"}), 400
@@ -854,7 +856,7 @@ def api_export_combined():
     videos = []
     for vid in video_ids:
         try:
-            vdata = _youtube_get(f"videos?part=snippet,statistics&id={vid}")
+            vdata = _youtube_get(f"videos?part=snippet,statistics&id={vid}", key_override=user_key)
         except Exception:
             continue
         items = vdata.get("items", [])

@@ -337,6 +337,19 @@ p, li { font-size: 15px; color: var(--text-secondary); }
 
 </div>
 
+<!-- ====== Settings Modal ====== -->
+<div id="settingsOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;align-items:center;justify-content:center">
+  <div style="background:var(--surface);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px;max-width:440px;width:90%;box-shadow:var(--depth-4)">
+    <h3 style="margin:0 0 8px">⚙️ 自定义 API Key</h3>
+    <p style="font-size:14px;color:var(--text-tertiary);margin:0 0 20px">使用你自己的 YouTube Data API v3 Key，配额独立计算。<br><a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--accent)">获取 Key →</a></p>
+    <input id="customApiKey" type="text" placeholder="AIzaSy..." style="width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;outline:none;box-sizing:border-box">
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button onclick="saveApiKey()" class="btn btn-primary" style="flex:1;font-size:14px;padding:10px">保存</button>
+      <button onclick="clearApiKey()" class="btn btn-secondary" style="font-size:14px;padding:10px">清除</button>
+    </div>
+    <p id="keyStatus" style="font-size:12px;color:var(--green);margin:12px 0 0;min-height:18px"></p>
+  </div>
+</div>
 
 <!-- ====== Nav ====== -->
 <nav class="nav">
@@ -346,6 +359,7 @@ p, li { font-size: 15px; color: var(--text-secondary); }
       <button class="theme-toggle" onclick="toggleTheme()" title="切换日/夜模式" id="themeBtn">
         <span class="theme-icon">☀️</span>
       </button>
+      <button class="nav-btn" onclick="toggleSettings()" style="cursor:pointer">⚙️</button>
       <a href="#search" class="nav-btn">开始使用</a>
     </div>
   </div>
@@ -681,7 +695,7 @@ async function doSearch() {
   if (!kw) return;
   setState("loading");
   try {
-    const resp = await fetch(`/api/search?q=${encodeURIComponent(kw)}`);
+    const resp = await fetch(`/api/search?q=${encodeURIComponent(kw)}&key=${encodeURIComponent(getApiKey())}`);
     const data = await resp.json();
     if (data.error) { setState("empty"); return; }
     allVideos = data.videos || [];
@@ -955,7 +969,7 @@ async function loadMoreApi() {
   var btn = document.getElementById("loadMoreApi");
   btn.disabled = true; btn.textContent = "加载中...";
   try {
-    var resp = await fetch(`/api/search?q=${encodeURIComponent(currentKeyword)}&pageToken=${encodeURIComponent(nextPageToken)}`);
+    var resp = await fetch(`/api/search?q=${encodeURIComponent(currentKeyword)}&pageToken=${encodeURIComponent(nextPageToken)}&key=${encodeURIComponent(getApiKey())}`);
     var data = await resp.json();
     if (data.error) return;
     var newVideos = data.videos || [];
@@ -1007,6 +1021,32 @@ function goPageAbsolute(p) { currentPage = p; renderCards(); }
 
 function fmt(n) { return n >= 10000 ? (n/10000).toFixed(1) + "万" : n.toLocaleString(); }
 function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+// ── API Key Settings ──
+function toggleSettings() {
+  var o = document.getElementById("settingsOverlay");
+  o.style.display = o.style.display === "flex" ? "none" : "flex";
+  var saved = sessionStorage.getItem("custom_api_key");
+  if (saved) document.getElementById("customApiKey").value = saved;
+  document.getElementById("keyStatus").textContent = saved ? "✅ 已使用自定义 Key" : "";
+}
+document.getElementById("settingsOverlay").addEventListener("click", function(e) {
+  if (e.target === this) this.style.display = "none";
+});
+function saveApiKey() {
+  var key = document.getElementById("customApiKey").value.trim();
+  if (!key) return;
+  sessionStorage.setItem("custom_api_key", key);
+  document.getElementById("keyStatus").textContent = "✅ 已保存，搜索将使用你的 Key";
+  document.getElementById("settingsOverlay").style.display = "none";
+}
+function clearApiKey() {
+  sessionStorage.removeItem("custom_api_key");
+  document.getElementById("customApiKey").value = "";
+  document.getElementById("keyStatus").textContent = "已切换为默认 Key";
+}
+function getApiKey() { return sessionStorage.getItem("custom_api_key") || ""; }
+
 document.getElementById("keyword").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
 
 // ── Theme Toggle ──
