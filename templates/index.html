@@ -703,8 +703,10 @@ async function doSearch() {
 
 function renderCards() {
   const container = document.getElementById("videoList");
-  const start = currentPage * PAGE_SIZE;
-  const pageVideos = allVideos.slice(start, start + PAGE_SIZE);
+  var filteredVideos = getFilteredVideos();
+  var totalFiltered = filteredVideos.length;
+  var start = currentPage * PAGE_SIZE;
+  var pageVideos = filteredVideos.slice(start, start + PAGE_SIZE);
   
   const newHTML = pageVideos.map((v, i) => {
     const globalIdx = allVideos.indexOf(v);
@@ -749,21 +751,14 @@ function onCheck(i, checked) { document.getElementById("card-" + i).classList.to
 
 function toggleAll() {
   var cbs = document.querySelectorAll("#videoList input[type='checkbox']:not(:disabled)");
-  var visibleCards = document.querySelectorAll(".video-card:not([style*='display: none'])");
-  var allChecked = true;
-  visibleCards.forEach(function(c) {
-    var cb = c.querySelector('input[type="checkbox"]');
-    if (cb && !cb.checked && !cb.disabled) allChecked = false;
-  });
+  var allChecked = cbs.length > 0 && [...cbs].every(function(cb) { return cb.checked; });
   cbs.forEach(function(cb) { cb.checked = !allChecked; });
-  visibleCards.forEach(function(c) {
+  document.querySelectorAll(".video-card").forEach(function(c) {
     var cb = c.querySelector('input[type="checkbox"]');
     c.classList.toggle("selected", cb && cb.checked);
   });
-
   updateUI();
 }
-
 function updateSelectAllLabel() {
   var visibleCards = document.querySelectorAll(".video-card:not([style*='display: none'])");
   var checked = document.querySelectorAll("#videoList input[type='checkbox']:checked:not(:disabled)");
@@ -974,7 +969,8 @@ async function loadMoreApi() {
 }
 
 function updatePagination() {
-  var totalPages = Math.ceil(allVideos.length / PAGE_SIZE);
+  var fv = getFilteredVideos();
+  var totalPages = Math.ceil(fv.length / PAGE_SIZE) || 1;
   var prev = document.getElementById("prevPage");
   var next = document.getElementById("nextPage");
   var nums = document.getElementById("pageNumbers");
@@ -982,7 +978,7 @@ function updatePagination() {
   var loadBtn = document.getElementById("loadMoreApi");
   prev.disabled = currentPage === 0;
   next.disabled = currentPage >= totalPages - 1;
-  info.textContent = `${currentPage+1} / ${totalPages} 页 · ${allVideos.length} 个视频`;
+  info.textContent = `${currentPage+1} / ${totalPages} 页 · ${fv.length} 个视频`;
   loadBtn.style.display = nextPageToken ? "" : "none";
   var html2 = '';
   var startP = Math.max(0, currentPage - 2);
