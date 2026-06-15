@@ -320,14 +320,25 @@ p, li { font-size: 15px; color: var(--text-secondary); }
 <!-- ====== Settings Modal ====== -->
 <div id="settingsOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;align-items:center;justify-content:center">
   <div style="background:var(--surface);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px;max-width:440px;width:90%;box-shadow:var(--depth-4)">
-    <h3 style="margin:0 0 8px">⚙️ 自定义 API Key</h3>
-    <p style="font-size:14px;color:var(--text-tertiary);margin:0 0 20px">使用你自己的 YouTube Data API v3 Key，配额独立计算。<br><a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--accent)">获取 Key →</a></p>
+    <h3 style="margin:0 0 4px">⚙️ 自定义 API Key</h3>
+    <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 16px">使用你自己的 Key，配额独立（每日 10,000 units）</p>
+    <details style="margin-bottom:16px;font-size:12px;color:var(--text-secondary);line-height:1.7">
+      <summary style="cursor:pointer;color:var(--accent);font-weight:600">📖 如何获取 API Key？</summary>
+      <ol style="margin:8px 0 0;padding-left:18px">
+        <li>打开 <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--accent)">Google Cloud Console</a>，登录 Google 账号</li>
+        <li>新建项目 → 命名（如 "YouTube Research"）</li>
+        <li>左侧菜单 → API 和服务 → 库 → 搜索 "<b>YouTube Data API v3</b>" → 启用</li>
+        <li>左侧菜单 → 凭据 → 创建凭据 → <b>API 密钥</b></li>
+        <li>复制生成的 Key，粘贴到下方输入框</li>
+      </ol>
+      <p style="margin:8px 0 0;color:var(--text-tertiary)">💡 新账号默认有免费配额，无需绑卡</p>
+    </details>
     <input id="customApiKey" type="text" placeholder="AIzaSy..." style="width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;outline:none;box-sizing:border-box">
-    <div style="display:flex;gap:8px;margin-top:16px">
+    <div style="display:flex;gap:8px;margin-top:12px">
       <button onclick="saveApiKey()" class="btn btn-primary" style="flex:1;font-size:14px;padding:10px">保存</button>
       <button onclick="clearApiKey()" class="btn btn-secondary" style="font-size:14px;padding:10px">清除</button>
     </div>
-    <p id="keyStatus" style="font-size:12px;color:var(--green);margin:12px 0 0;min-height:18px"></p>
+    <p id="keyStatus" style="font-size:12px;color:var(--green);margin:10px 0 0;min-height:18px"></p>
   </div>
 </div>
 
