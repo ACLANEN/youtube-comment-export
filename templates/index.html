@@ -587,12 +587,7 @@ p, li { font-size: 15px; color: var(--text-secondary); }
         <option value="xlsx">Excel (.xlsx)</option>
         <option value="json">JSON</option>
       </select>
-      <select id="minLikes" style="width:auto;font-size:12px" onchange="updateUI()" title="仅导出点赞数≥此值的评论">
-        <option value="0">全部评论</option>
-        <option value="5">≥5 赞</option>
-        <option value="10">≥10 赞</option>
-        <option value="50">≥50 赞</option>
-      </select>
+
       <select id="translateLang" style="width:auto;font-size:12px" title="翻译评论/字幕">
         <option value="">原文</option>
         <option value="zh-CN">翻译为中文</option>
@@ -786,9 +781,8 @@ async function updateUI() {
   // 拉取导出统计
   if (count > 0) {
     const ids = [...checked].map(cb => allVideos[cb.value].video_id);
-    const minLikes = parseInt(document.getElementById("minLikes").value);
     try {
-      const resp = await fetch("/api/export/stats", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ video_ids: ids, min_likes: minLikes }) });
+      const resp = await fetch("/api/export/stats", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ video_ids: ids, min_likes: 0 }) });
       const s = await resp.json();
       document.getElementById("exportStats").style.display = "inline";
       document.getElementById("exportStats").innerHTML = `<strong>${s.total_comments}</strong> 条评论 · <strong>${s.total_likes}</strong> 点赞 · ${s.video_count} 个视频`;
@@ -824,7 +818,6 @@ function onStructureChange() {
 
 function onExportTypeChange() {
   var type = document.getElementById("exportType").value;
-  document.getElementById("minLikes").style.display = (type === "transcript") ? "none" : "";
   onStructureChange();
   updateUI();
 }
@@ -840,7 +833,7 @@ function doExport() {
   var exportType = document.getElementById("exportType").value;
   var format = document.getElementById("exportFormat").value;
   var structure = document.getElementById("exportStructure").value;
-  var minLikes = parseInt(document.getElementById("minLikes").value) || 0;
+  var minLikes = 0;
   var bar = document.getElementById("exportBar");
   var oldHTML = bar.innerHTML;
 
