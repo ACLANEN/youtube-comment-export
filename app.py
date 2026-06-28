@@ -14,6 +14,10 @@ import requests
 import xml.etree.ElementTree as ET
 import glob as _glob
 
+import logging
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+logger = logging.getLogger(__name__)
+
 from flask import Flask, render_template, request, jsonify, send_file, redirect
 
 # ── 可选依赖（不阻塞启动）──
@@ -22,17 +26,34 @@ try:
     _HAS_YTDLP = True
 except ImportError:
     _HAS_YTDLP = False
-    print("[warn] yt-dlp 未安装，字幕方案 B 不可用")
+    logger.warning("yt-dlp 未安装，字幕方案 B 不可用")
 
 try:
     from deep_translator import GoogleTranslator
     _HAS_TRANSLATOR = True
 except ImportError:
     _HAS_TRANSLATOR = False
-    print("[warn] deep-translator 未安装，翻译功能不可用")
+    logger.warning("deep-translator 未安装，翻译功能不可用")
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
+
+# ── 请求耗时日志 ──
+@app.before_request
+def _log_request_start():
+    request._start_time = time.time()
+
+@app.after_request
+def _log_request_end(response):
+    if hasattr(request, '_start_time'):
+        elapsed = time.time() - request._start_time
+        if elapsed > 3.0:
+            logger.warning(f"slow request: {request.method} {request.path} took {elapsed:.1f}s")
+    return response
+
+# ── 统一错误响应 ──
+def _err(msg: str, code: int = 400):
+    return jsonify({"ok": False, "error": msg}), code
 
 # ── 配置（仅从环境变量读取，无默认值暴露）──
 API_KEY = os.getenv("YOUTUBE_API_KEY")
@@ -72,7 +93,14 @@ if not os.path.exists(CODES_FILE):
     _save_codes({})
 
 
+# ── 配额保护：检测到 quotaExceeded 后全局标记，避免浪费后续请求 ──
+_quota_exhausted = False
+
 def _youtube_get(path: str, key_override: str = None, retries: int = 3) -> dict:
+    global _quota_exhausted
+    if _quota_exhausted:
+        raise RuntimeError("YouTube API 配额已用完（本次运行期间已检测到）")
+
     key = key_override or API_KEY
     if not key:
         raise RuntimeError("YOUTUBE_API_KEY 未配置")
@@ -82,6 +110,7 @@ def _youtube_get(path: str, key_override: str = None, retries: int = 3) -> dict:
         try:
             resp = requests.get(url, timeout=20)
             if resp.status_code == 403 and "quotaExceeded" in resp.text:
+                _quota_exhausted = True
                 raise RuntimeError("YouTube API 配额已用完，请明天再试或更换 API Key")
             resp.raise_for_status()
             return resp.json()
@@ -104,6 +133,8 @@ def _youtube_get(path: str, key_override: str = None, retries: int = 3) -> dict:
 def _format_duration(iso: str) -> str:
     """PT1H23M45S → 1:23:45"""
     import re
+    if not iso:
+        return ""
     m = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', iso)
     if not m:
         return ""
@@ -111,8 +142,11 @@ def _format_duration(iso: str) -> str:
     parts = []
     if h: parts.append(h)
     parts.append(mm or "0")
-    parts.append(s.zfill(2) if s else "00")
-    return ":".join(parts) if len(parts) > 2 else f"{parts[0]}:{parts[1]}"
+    sec = s if s else "0"
+    parts.append(sec.zfill(2))
+    if len(parts) == 3:
+        return f"{parts[0]}:{parts[1]}:{parts[2]}"
+    return f"{parts[0]}:{parts[1]}"
 
 
 # ═══════════════════════════════════════
@@ -282,9 +316,26 @@ def admin_reset_code():
 #  字幕提取
 # ═══════════════════════════════════════
 
-def _extract_captions(video_id):
-    """字幕提取：youtube_transcript_api 优先 → yt-dlp → timedtext API"""
+def _extract_captions(video_id, timeout_sec: int = 30):
+    """字幕提取：youtube_transcript_api 优先 → yt-dlp → timedtext API（总超时{timeout_sec}s）"""
+    import concurrent.futures
     import html as html_mod
+
+    def _do_extract():
+        return _extract_captions_inner(video_id, html_mod)
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_do_extract)
+            return future.result(timeout=timeout_sec)
+    except concurrent.futures.TimeoutError:
+        logger.warning(f"captions: timed out after {timeout_sec}s for {video_id}")
+        return None
+    except Exception:
+        return None
+
+
+def _extract_captions_inner(video_id, html_mod):
 
     segments = None
     lang = "en"
@@ -320,7 +371,7 @@ def _extract_captions(video_id):
                     "duration": round(s.duration, 1),
                 })
     except Exception as e:
-        print(f"[captions] youtube_transcript_api failed for {video_id}: {e}")
+        logger.info(f"captions: transcript_api failed for {video_id}: {e}")
 
     # === 方案 B: yt-dlp 下载字幕 ===
     if not segments and _HAS_YTDLP:
@@ -356,7 +407,7 @@ def _extract_captions(video_id):
                     try: os.remove(path)
                     except: pass
         except Exception as e:
-            print(f"[captions] yt-dlp failed for {video_id}: {e}")
+            logger.info(f"captions: yt-dlp failed for {video_id}: {e}")
 
     # === 方案 C: timedtext API 直连 ===
     if not segments:
@@ -373,10 +424,10 @@ def _extract_captions(video_id):
                     lang = ln
                     break
             except Exception as e:
-                print(f"[captions] timedtext API failed for {video_id} ({ln}): {e}")
+                logger.info(f"captions: timedtext failed for {video_id} ({ln}): {e}")
 
     if not segments:
-        print(f"[captions] all 3 methods failed for {video_id}")
+        logger.warning(f"captions: all 3 methods failed for {video_id}")
         return None
 
     return {
@@ -400,7 +451,11 @@ def _parse_ttml(xml_text, html_mod):
                 d = _parse_ttml_time(dur)
                 segments.append({"text": html_mod.unescape(text), "start": round(s, 1), "duration": round(d, 1)})
         return segments
-    except Exception:
+    except ET.ParseError as e:
+        logger.info(f"ttml parse error: {e}")
+        return []
+    except Exception as e:
+        logger.error(f"ttml parse unexpected error: {e}")
         return []
 
 
@@ -580,7 +635,7 @@ def _fetch_video_info(vid: str, user_key: str = None) -> dict | None:
         vdata = _youtube_get(f"videos?part=snippet,statistics,contentDetails&id={vid}",
                              key_override=user_key, retries=2)
     except Exception as e:
-        print(f"[video_info] failed for {vid}: {e}")
+        logger.warning(f"video_info: failed for {vid}: {e}")
         return None
     items = vdata.get("items", [])
     if not items:
@@ -754,7 +809,7 @@ def api_export():
     user_key = data.get("api_key", "").strip() or None
 
     if not video_ids:
-        return jsonify({"error": "请选择至少一个视频"}), 400
+        return _err("请选择至少一个视频")
 
     # ── 按视频拉取 ──
     videos = []
@@ -792,7 +847,7 @@ def api_export():
             stats["total_likes"] += c["likes"]
 
     if not videos:
-        return jsonify({"error": "所选视频暂无数据。可能原因：API 配额用完、视频评论已关闭、或网络异常，请稍后重试。"}), 404
+        return _err("所选视频暂无数据。可能原因：API 配额用完、视频评论已关闭、或网络异常，请稍后重试。", 404)
 
     date_str = datetime.now().strftime("%Y-%m-%d")
     safe_title = "".join(c if c.isalnum() or c in "-_" else "" for c in videos[0]["title"][:30]).strip()[:30]
@@ -950,7 +1005,7 @@ def api_export_combined():
     user_key = data.get("api_key", "").strip() or None
 
     if not video_ids:
-        return jsonify({"error": "请选择至少一个视频"}), 400
+        return _err("请选择至少一个视频")
 
     # ── 按视频拉取评论 + 字幕 ──
     videos = []
