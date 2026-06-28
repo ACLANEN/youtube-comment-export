@@ -446,11 +446,11 @@ p, li { font-size: 15px; color: var(--text-secondary); }
           <div class="filter-group">
             <label>🔀 排序</label>
             <select id="sortBy" onchange="applyFilters()">
-              <option value="views_desc">播放量 ↓</option>
+              <option value="date_desc" selected>最新发布</option>
               <option value="views_asc">播放量 ↑</option>
               <option value="comments_desc">评论数 ↓</option>
               <option value="comments_asc">评论数 ↑</option>
-              <option value="date_desc">最新发布</option>
+              <option value="views_desc">播放量 ↓</option>
               <option value="date_asc">最早发布</option>
             </select>
           </div>
@@ -733,7 +733,7 @@ async function doSearch() {
     allVideos = data.videos || [];
     nextPageToken = data.nextPageToken || "";
     currentKeyword = kw;
-    document.getElementById("sortBy").value = "views_desc";
+    document.getElementById("sortBy").value = "date_desc";
     currentPage = 0;
     // 标题精准模式：先过滤再渲染
     if (searchMode === "title") {
@@ -985,7 +985,7 @@ function clearFilters() {
   document.getElementById("cmtMax").value = "";
   document.getElementById("dateFrom").value = "";
   document.getElementById("dateTo").value = "";
-  document.getElementById("sortBy").value = "views_desc";
+  document.getElementById("sortBy").value = "date_desc";
   applyFilters();
 }
 
