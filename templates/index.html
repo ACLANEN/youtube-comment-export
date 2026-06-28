@@ -171,11 +171,28 @@ p, li { font-size: 15px; color: var(--text-secondary); }
 .results-header .select-all:hover { text-decoration: underline; }
 
 /* ====== Filter Row ====== */
-.filter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 14px 20px; background: var(--glass-bg); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: var(--radius-lg); font-size: 13px; flex-wrap: wrap; box-shadow: var(--depth-1); }
-.filter-row label { color: var(--text-tertiary); }
-.filter-row select, .filter-row input { background: var(--input-bg); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: var(--radius-sm); font-size: 13px; outline: none; transition: all .2s; }
-.filter-row select:focus, .filter-row input:focus { border-color: var(--accent); }
-.filter-row input[type="number"] { width: 70px; }
+.filter-row {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+  padding: 12px 20px; background: var(--glass-bg);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  font-size: 13px; flex-wrap: wrap; box-shadow: var(--depth-1);
+}
+.filter-group { display: flex; align-items: center; gap: 6px; }
+.filter-divider { width: 1px; height: 24px; background: var(--border); flex-shrink: 0; }
+.filter-row label { color: var(--text-tertiary); font-size: 12px; font-weight: 500; letter-spacing: .04em; white-space: nowrap; }
+.filter-row select, .filter-row input {
+  background: var(--input-bg); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  border: 1px solid var(--border); color: var(--text); padding: 6px 10px;
+  border-radius: 6px; font-size: 13px; outline: none; transition: all .2s;
+}
+.filter-row select:hover, .filter-row input:hover { border-color: var(--text-tertiary); }
+.filter-row select:focus, .filter-row input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255,59,59,.1); }
+.filter-row input[type="number"] { width: 60px; -moz-appearance: textfield; }
+.filter-row input[type="number"]::-webkit-inner-spin-button,
+.filter-row input[type="number"]::-webkit-outer-spin-button { opacity: 1; }
+.filter-row input[type="date"] { width: 115px; color-scheme: dark; }
+.filter-range-sep { color: var(--text-tertiary); font-size: 11px; user-select: none; }
 
 /* ====== Video Cards ====== */
 .video-list { display: flex; flex-direction: column; gap: 8px; }
@@ -426,34 +443,46 @@ p, li { font-size: 15px; color: var(--text-secondary); }
         </div>
         <div class="filter-row" id="filterComments">
 
-          <label>排序</label>
-          <select id="sortBy" onchange="applyFilters()">
-            <option value="views_desc">播放量 ↓</option>
-            <option value="views_asc">播放量 ↑</option>
-            <option value="comments_desc">评论数 ↓</option>
-            <option value="comments_asc">评论数 ↑</option>
-            <option value="date_desc">最新发布</option>
-            <option value="date_asc">最早发布</option>
-          </select>
+          <div class="filter-group">
+            <label>🔀 排序</label>
+            <select id="sortBy" onchange="applyFilters()">
+              <option value="views_desc">播放量 ↓</option>
+              <option value="views_asc">播放量 ↑</option>
+              <option value="comments_desc">评论数 ↓</option>
+              <option value="comments_asc">评论数 ↑</option>
+              <option value="date_desc">最新发布</option>
+              <option value="date_asc">最早发布</option>
+            </select>
+          </div>
 
-          <label style="margin-left:8px">播放量</label>
-          <input type="number" id="viewsMin" placeholder="最低" onchange="applyFilters()" style="width:70px">
-          <span style="color:var(--text-tertiary)">—</span>
-          <input type="number" id="viewsMax" placeholder="最高" onchange="applyFilters()" style="width:70px">
+          <div class="filter-divider"></div>
 
-          <label style="margin-left:8px">评论数</label>
-          <input type="number" id="cmtMin" placeholder="最低" onchange="applyFilters()" style="width:70px">
-          <span style="color:var(--text-tertiary)">—</span>
-          <input type="number" id="cmtMax" placeholder="最高" onchange="applyFilters()" style="width:70px">
+          <div class="filter-group">
+            <label>👁️ 播放量</label>
+            <input type="number" id="viewsMin" placeholder="最低" onchange="applyFilters()">
+            <span class="filter-range-sep">—</span>
+            <input type="number" id="viewsMax" placeholder="最高" onchange="applyFilters()">
+          </div>
 
-          <label style="margin-left:8px">日期</label>
-          <input type="date" id="dateFrom" onchange="applyFilters()" style="width:120px;font-size:12px">
-          <span style="color:var(--text-tertiary);font-size:12px">—</span>
-          <input type="date" id="dateTo" onchange="applyFilters()" style="width:120px;font-size:12px">
+          <div class="filter-divider"></div>
 
+          <div class="filter-group">
+            <label>💬 评论数</label>
+            <input type="number" id="cmtMin" placeholder="最低" onchange="applyFilters()">
+            <span class="filter-range-sep">—</span>
+            <input type="number" id="cmtMax" placeholder="最高" onchange="applyFilters()">
+          </div>
 
+          <div class="filter-divider"></div>
 
-        </div>>
+          <div class="filter-group">
+            <label>📅 日期</label>
+            <input type="date" id="dateFrom" onchange="applyFilters()">
+            <span class="filter-range-sep">—</span>
+            <input type="date" id="dateTo" onchange="applyFilters()">
+          </div>
+
+        </div>
 
         <div class="video-list" id="videoList"></div>
         <div class="pagination-wrap" id="paginationWrap">
