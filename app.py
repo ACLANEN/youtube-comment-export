@@ -7,17 +7,32 @@ import io
 import json
 import uuid
 import threading
+import time
 from datetime import datetime, timedelta
 
 import requests
-import yt_dlp
 import xml.etree.ElementTree as ET
 import glob as _glob
 
 from flask import Flask, render_template, request, jsonify, send_file, redirect
-from deep_translator import GoogleTranslator
+
+# ── 可选依赖（不阻塞启动）──
+try:
+    import yt_dlp
+    _HAS_YTDLP = True
+except ImportError:
+    _HAS_YTDLP = False
+    print("[warn] yt-dlp 未安装，字幕方案 B 不可用")
+
+try:
+    from deep_translator import GoogleTranslator
+    _HAS_TRANSLATOR = True
+except ImportError:
+    _HAS_TRANSLATOR = False
+    print("[warn] deep-translator 未安装，翻译功能不可用")
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
 
 # ── 配置（仅从环境变量读取，无默认值暴露）──
 API_KEY = os.getenv("YOUTUBE_API_KEY")
@@ -57,14 +72,33 @@ if not os.path.exists(CODES_FILE):
     _save_codes({})
 
 
-def _youtube_get(path: str, key_override: str = None) -> dict:
+def _youtube_get(path: str, key_override: str = None, retries: int = 3) -> dict:
     key = key_override or API_KEY
     if not key:
         raise RuntimeError("YOUTUBE_API_KEY 未配置")
     url = f"{BASE_URL}/{path}&key={key}"
-    resp = requests.get(url, timeout=15)
-    resp.raise_for_status()
-    return resp.json()
+    last_err = None
+    for attempt in range(retries):
+        try:
+            resp = requests.get(url, timeout=20)
+            if resp.status_code == 403 and "quotaExceeded" in resp.text:
+                raise RuntimeError("YouTube API 配额已用完，请明天再试或更换 API Key")
+            resp.raise_for_status()
+            return resp.json()
+        except requests.exceptions.Timeout as e:
+            last_err = e
+            if attempt < retries - 1:
+                time.sleep(1.5 * (attempt + 1))
+        except requests.exceptions.HTTPError as e:
+            if resp.status_code == 429 and attempt < retries - 1:
+                time.sleep(3 * (attempt + 1))
+                continue
+            raise
+        except requests.exceptions.RequestException as e:
+            last_err = e
+            if attempt < retries - 1:
+                time.sleep(1 * (attempt + 1))
+    raise RuntimeError(f"YouTube API 请求失败（重试{retries}次）: {last_err}")
 
 
 def _format_duration(iso: str) -> str:
@@ -285,11 +319,11 @@ def _extract_captions(video_id):
                     "start": round(s.start, 1),
                     "duration": round(s.duration, 1),
                 })
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[captions] youtube_transcript_api failed for {video_id}: {e}")
 
     # === 方案 B: yt-dlp 下载字幕 ===
-    if not segments:
+    if not segments and _HAS_YTDLP:
         ydl_opts = {
             'skip_download': True,
             'writesubtitles': True,
@@ -299,6 +333,8 @@ def _extract_captions(video_id):
             'outtmpl': {'default': f'/tmp/ytdl_{video_id}.%(ext)s'},
             'quiet': True,
             'no_warnings': True,
+            'socket_timeout': 20,
+            'retries': 2,
         }
         if CAPTION_PROXY:
             ydl_opts['proxy'] = CAPTION_PROXY
@@ -319,8 +355,8 @@ def _extract_captions(video_id):
                 except Exception:
                     try: os.remove(path)
                     except: pass
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[captions] yt-dlp failed for {video_id}: {e}")
 
     # === 方案 C: timedtext API 直连 ===
     if not segments:
@@ -336,10 +372,11 @@ def _extract_captions(video_id):
                     segments = _parse_ttml(r.text, html_mod)
                     lang = ln
                     break
-            except Exception:
-                continue
+            except Exception as e:
+                print(f"[captions] timedtext API failed for {video_id} ({ln}): {e}")
 
     if not segments:
+        print(f"[captions] all 3 methods failed for {video_id}")
         return None
 
     return {
@@ -536,6 +573,66 @@ def index():
     return render_template("index.html")
 
 
+# ── 共享：拉取单个视频元信息 ──
+def _fetch_video_info(vid: str, user_key: str = None) -> dict | None:
+    """拉取视频元信息，失败返回 None"""
+    try:
+        vdata = _youtube_get(f"videos?part=snippet,statistics,contentDetails&id={vid}",
+                             key_override=user_key, retries=2)
+    except Exception as e:
+        print(f"[video_info] failed for {vid}: {e}")
+        return None
+    items = vdata.get("items", [])
+    if not items:
+        return None
+    info = items[0]
+    snippet = info["snippet"]
+    stats = info.get("statistics", {})
+    cd = info.get("contentDetails", {})
+    return {
+        "video_id": vid,
+        "title": snippet["title"],
+        "channel": snippet["channelTitle"],
+        "published_at": snippet["publishedAt"],
+        "views": int(stats.get("viewCount", 0)),
+        "url": f"https://www.youtube.com/watch?v={vid}",
+        "duration": _format_duration(cd.get("duration", "")),
+        "has_captions": cd.get("caption", "false") == "true",
+        "comment_count": int(stats.get("commentCount", 0)),
+    }
+
+# ── 共享：拉取视频评论 ──
+def _fetch_video_comments(vid: str, videos: list, min_likes: int = 0,
+                          user_key: str = None, fetch_transcripts: bool = False) -> int:
+    """拉取单个视频的评论+可选字幕，追加到 videos 列表。返回实际添加的视频数(0或1)"""
+    info = _fetch_video_info(vid, user_key)
+    if not info:
+        return 0
+
+    comments = _fetch_comments(vid, min_likes=min_likes, key_override=user_key)
+    if not comments and not fetch_transcripts:
+        return 0
+
+    video = {**info, "comments": comments, "transcripts": []}
+
+    if fetch_transcripts:
+        captions = _extract_captions(vid)
+        if captions:
+            for seg in captions["segments"]:
+                ss = int(seg["start"])
+                mm, ss2 = divmod(ss, 60)
+                video["transcripts"].append({
+                    "timestamp": f"{mm:02d}:{ss2:02d}",
+                    "duration": round(seg["duration"], 1),
+                    "text": seg["text"],
+                    "link": f"https://www.youtube.com/watch?v={vid}&t={ss}",
+                })
+
+    if video["comments"] or video["transcripts"]:
+        videos.append(video)
+        return 1
+    return 0
+
 @app.route("/api/search")
 def api_search():
     keyword = request.args.get("q", "").strip()
@@ -549,7 +646,7 @@ def api_search():
         path += f"&pageToken={page_token}"
 
     try:
-        data = _youtube_get(path, key_override=user_key or None)
+        data = _youtube_get(path, key_override=key_override)
     except Exception as e:
         return jsonify({"error": f"搜索失败: {str(e)}"}), 500
 
@@ -607,17 +704,19 @@ def api_search():
 
 
 def _fetch_comments(vid: str, min_likes: int = 0, max_pages: int = 5, key_override: str = None) -> list[dict]:
-    """拉取评论，支持翻页（每页100条，最多5页=500条）"""
+    """拉取评论，支持翻页（每页100条，最多5页=500条），含重试"""
     comments = []
     page_token = ""
-    for _ in range(max_pages):
+    for page_num in range(max_pages):
         try:
-            path = f"commentThreads?part=snippet&videoId={vid}&maxResults=100&order=relevance"
+            path = f"commentThreads?part=snippet&videoId={vid}&maxResults=100&order=time"
             if page_token:
                 path += f"&pageToken={page_token}"
-            cdata = _youtube_get(path, key_override=user_key or None)
+            cdata = _youtube_get(path, key_override=key_override, retries=2)
         except Exception:
-            break
+            if page_num == 0:
+                raise  # 第一页失败就抛出去，别静默吞掉
+            break  # 后续页失败则停止翻页，保留已有数据
         for item in cdata.get("items", []):
             top = item["snippet"]["topLevelComment"]["snippet"]
             likes = top.get("likeCount", 0)
@@ -663,8 +762,9 @@ def api_export():
 
     for vid in video_ids:
         try:
-            vdata = _youtube_get(f"videos?part=snippet,statistics&id={vid}", key_override=user_key)
-        except Exception:
+            vdata = _youtube_get(f"videos?part=snippet,statistics&id={vid}", key_override=user_key, retries=2)
+        except Exception as e:
+            print(f"[export] video info failed for {vid}: {e}")
             continue
         items = vdata.get("items", [])
         if not items:
@@ -692,7 +792,7 @@ def api_export():
             stats["total_likes"] += c["likes"]
 
     if not videos:
-        return jsonify({"error": "所选视频暂无符合条件的评论"}), 404
+        return jsonify({"error": "所选视频暂无数据。可能原因：API 配额用完、视频评论已关闭、或网络异常，请稍后重试。"}), 404
 
     date_str = datetime.now().strftime("%Y-%m-%d")
     safe_title = "".join(c if c.isalnum() or c in "-_" else "" for c in videos[0]["title"][:30]).strip()[:30]
@@ -856,8 +956,9 @@ def api_export_combined():
     videos = []
     for vid in video_ids:
         try:
-            vdata = _youtube_get(f"videos?part=snippet,statistics&id={vid}", key_override=user_key)
-        except Exception:
+            vdata = _youtube_get(f"videos?part=snippet,statistics&id={vid}", key_override=user_key, retries=2)
+        except Exception as e:
+            print(f"[export] video info failed for {vid}: {e}")
             continue
         items = vdata.get("items", [])
         if not items:
@@ -904,7 +1005,7 @@ def api_export_combined():
             videos.append(video)
 
     # ── 翻译 ──
-    if translate_to and videos:
+    if translate_to and videos and _HAS_TRANSLATOR:
         try:
             translator = GoogleTranslator(source="auto", target=translate_to)
             for v in videos:
