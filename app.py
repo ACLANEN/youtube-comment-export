@@ -696,7 +696,7 @@ def api_search():
     if not keyword:
         return jsonify({"error": "关键词不能为空"}), 400
 
-    path = f"search?part=snippet&q={keyword}&type=video&maxResults=50"
+    path = f"search?part=snippetsearch?part=snippet&q=order=datesearch?part=snippet&q=q={keyword}&type=video&maxResults=50"
     if page_token:
         path += f"&pageToken={page_token}"
 
