@@ -700,6 +700,7 @@ def api_search():
     if page_token:
         path += f"&pageToken={page_token}"
 
+    key_override = user_key or None
     try:
         data = _youtube_get(path, key_override=key_override)
     except RuntimeError as e:
