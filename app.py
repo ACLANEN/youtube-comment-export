@@ -702,6 +702,13 @@ def api_search():
 
     try:
         data = _youtube_get(path, key_override=key_override)
+    except RuntimeError as e:
+        err_msg = str(e)
+        is_quota = "配额" in err_msg or "quota" in err_msg.lower()
+        return jsonify({
+            "error": err_msg,
+            "quota_exhausted": is_quota,
+        }), (429 if is_quota else 500)
     except Exception as e:
         return jsonify({"error": f"搜索失败: {str(e)}"}), 500
 
@@ -847,7 +854,12 @@ def api_export():
             stats["total_likes"] += c["likes"]
 
     if not videos:
-        return _err("所选视频暂无数据。可能原因：API 配额用完、视频评论已关闭、或网络异常，请稍后重试。", 404)
+        is_quota = _quota_exhausted
+        return jsonify({
+            "error": "所选视频暂无数据",
+            "detail": "可能原因：API 配额用完、视频评论已关闭、或网络异常，请稍后重试。",
+            "quota_exhausted": is_quota,
+        }), (429 if is_quota else 404)
 
     date_str = datetime.now().strftime("%Y-%m-%d")
     safe_title = "".join(c if c.isalnum() or c in "-_" else "" for c in videos[0]["title"][:30]).strip()[:30]
